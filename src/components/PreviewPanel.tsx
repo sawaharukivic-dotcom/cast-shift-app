@@ -13,7 +13,6 @@ interface PreviewPanelProps {
   selectedDateKey: string | null;
   onSelectedDateKeyChange: (key: string) => void;
   onClearAllCasts: () => void;
-  onExport: () => void;
   onWeekBatchExport: () => void;
   /** 外部からcanvasRefを受け取るためのコールバック */
   timelineCanvasRef: React.RefObject<HTMLCanvasElement | null>;
@@ -32,7 +31,6 @@ export function PreviewPanel({
   selectedDateKey,
   onSelectedDateKeyChange,
   onClearAllCasts,
-  onExport,
   onWeekBatchExport,
   timelineCanvasRef,
   sheetCanvasRef,
@@ -153,6 +151,9 @@ export function PreviewPanel({
           />
         )}
       </div>
+      <p className="mt-2 text-xs text-gray-500 text-center">
+        画像を右クリック →「名前を付けて画像を保存」でダウンロードできます
+      </p>
     </div>
   );
 }

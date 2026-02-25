@@ -108,5 +108,5 @@ export const LAYOUT_1_1 = {
 export type Layout = typeof LAYOUT_16_9;
 
 export function getLayout(aspectRatio: AspectRatio): Layout {
-  return aspectRatio === "16:9" ? LAYOUT_16_9 : LAYOUT_1_1;
+  return aspectRatio === "16:9" ? LAYOUT_1_1 : LAYOUT_16_9;
 }
