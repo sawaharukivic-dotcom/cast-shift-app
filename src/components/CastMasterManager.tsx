@@ -3,9 +3,11 @@ import { Button } from './ui/button';
 import { Label } from './ui/label';
 import { Trash2, Download } from 'lucide-react';
 import { toast } from 'sonner@2.0.3';
+import { ExternalLink } from 'lucide-react';
 import { CastMasterImport } from './CastMasterImport';
 import { RankListEditor } from './RankListEditor';
 import { CastListItem } from './CastListItem';
+import { MASTER_SHEET_URL } from '../config';
 
 // 型定義は src/types/schedule.ts に集約（後方互換のため再エクスポート）
 export type { CastRank, CastMaster, RankLists } from '../types/schedule';
@@ -21,6 +23,11 @@ interface CastMasterManagerProps {
   rankLists: RankLists;
   onRankListsChange: (lists: RankLists) => void;
 }
+
+// CSVエクスポートURLからスプレッドシートの閲覧用URLを生成
+const SHEET_VIEW_URL = MASTER_SHEET_URL
+  ? MASTER_SHEET_URL.replace(/\/export\?.*$/, '')
+  : '';
 
 export function CastMasterManager({ castMasters, onCastMastersChange, rankLists, onRankListsChange }: CastMasterManagerProps) {
   const handleRemove = (index: number) => {
@@ -72,6 +79,17 @@ export function CastMasterManager({ castMasters, onCastMastersChange, rankLists,
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
+        {SHEET_VIEW_URL && (
+          <a
+            href={SHEET_VIEW_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1 text-sm text-blue-600 hover:text-blue-800 hover:underline"
+          >
+            <ExternalLink className="size-3.5" />
+            参照スプレッドシートを開く
+          </a>
+        )}
         <CastMasterImport
           castMasters={castMasters}
           onCastMastersChange={onCastMastersChange}
