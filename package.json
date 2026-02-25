@@ -1,0 +1,33 @@
+{
+      "name": "Create Template Steps",
+      "version": "0.1.0",
+      "private": true,
+      "dependencies": {
+            "@radix-ui/react-label": "^2.1.2",
+            "@radix-ui/react-progress": "^1.1.2",
+            "@radix-ui/react-slot": "^1.1.2",
+            "@radix-ui/react-tabs": "^1.1.3",
+            "class-variance-authority": "^0.7.1",
+            "clsx": "*",
+            "jszip": "^3.10.1",
+            "lucide-react": "^0.487.0",
+            "next-themes": "^0.4.6",
+            "react": "^18.3.1",
+            "react-dom": "^18.3.1",
+            "sonner": "^2.0.3",
+            "tailwind-merge": "*",
+            "xlsx": "^0.18.5"
+      },
+      "devDependencies": {
+            "@types/node": "^20.10.0",
+            "@vitejs/plugin-react-swc": "^3.10.2",
+            "vite": "6.3.5",
+            "vitest": "^4.0.18"
+      },
+      "scripts": {
+            "dev": "vite",
+            "build": "vite build",
+            "test": "vitest run",
+            "test:watch": "vitest"
+      }
+}
