@@ -1,18 +1,19 @@
 import type { ScheduleRenderInput, RenderTimeSlot, RenderCast } from "../types/renderTypes";
 import { roundRect } from "./canvasHelpers";
 
-export const SHEET_CANVAS_WIDTH = 1800;
-export const SHEET_MIN_HEIGHT = 600;
-export const SHEET_TITLE_HEIGHT = 40;
-export const SHEET_HEADER_HEIGHT = 40;
-export const SHEET_ROW_HEIGHT = 140;
-export const SHEET_BOTTOM_PADDING = 20;
+// 2x解像度（CSSで縮小表示）
+export const SHEET_CANVAS_WIDTH = 3600;
+export const SHEET_MIN_HEIGHT = 1200;
+export const SHEET_TITLE_HEIGHT = 80;
+export const SHEET_HEADER_HEIGHT = 80;
+export const SHEET_ROW_HEIGHT = 280;
+export const SHEET_BOTTOM_PADDING = 40;
 
-const PROFILE_COL_WIDTH = 300;
-const LEFT_PADDING = 20;
-const RIGHT_PADDING = 20;
-const IMAGE_SIZE_LARGE = 90;
-const NAME_FONT_SIZE_LARGE = 20;
+const PROFILE_COL_WIDTH = 600;
+const LEFT_PADDING = 40;
+const RIGHT_PADDING = 40;
+const IMAGE_SIZE_LARGE = 180;
+const NAME_FONT_SIZE_LARGE = 40;
 import { DEFAULT_COLOR } from "../constants";
 
 interface SheetRow {
@@ -77,10 +78,10 @@ export function renderScheduleSheet(
   ctx.fillRect(0, 0, canvasWidth, canvasHeight);
 
   ctx.fillStyle = "#000000";
-  ctx.font = "bold 24px sans-serif";
+  ctx.font = "bold 48px sans-serif";
   ctx.textAlign = "left";
   ctx.textBaseline = "top";
-  ctx.fillText(date, LEFT_PADDING, 10);
+  ctx.fillText(date, LEFT_PADDING, 20);
 
   const headerY = SHEET_TITLE_HEIGHT;
   const tableStartY = headerY + SHEET_HEADER_HEIGHT;
@@ -92,7 +93,7 @@ export function renderScheduleSheet(
   ctx.fillRect(0, headerY, canvasWidth, SHEET_HEADER_HEIGHT);
 
   ctx.strokeStyle = "#e5e7eb";
-  ctx.lineWidth = 1;
+  ctx.lineWidth = 2;
   ctx.beginPath();
   ctx.moveTo(0, headerY);
   ctx.lineTo(canvasWidth, headerY);
@@ -119,17 +120,17 @@ export function renderScheduleSheet(
     ctx.stroke();
 
     const imgX = LEFT_PADDING + (PROFILE_COL_WIDTH - IMAGE_SIZE_LARGE) / 2;
-    const imgY = y + 10;
+    const imgY = y + 20;
     const img = imageMap.get(row.imageUrl);
     if (img) {
       ctx.save();
-      roundRect(ctx, imgX, imgY, IMAGE_SIZE_LARGE, IMAGE_SIZE_LARGE, 12);
+      roundRect(ctx, imgX, imgY, IMAGE_SIZE_LARGE, IMAGE_SIZE_LARGE, 24);
       ctx.clip();
       ctx.drawImage(img, imgX, imgY, IMAGE_SIZE_LARGE, IMAGE_SIZE_LARGE);
       ctx.restore();
     } else {
       ctx.fillStyle = "#d1d5db";
-      roundRect(ctx, imgX, imgY, IMAGE_SIZE_LARGE, IMAGE_SIZE_LARGE, 12);
+      roundRect(ctx, imgX, imgY, IMAGE_SIZE_LARGE, IMAGE_SIZE_LARGE, 24);
       ctx.fill();
     }
 
@@ -140,7 +141,7 @@ export function renderScheduleSheet(
     ctx.fillText(
       row.name,
       LEFT_PADDING + PROFILE_COL_WIDTH / 2,
-      y + IMAGE_SIZE_LARGE + 15
+      y + IMAGE_SIZE_LARGE + 30
     );
 
     row.hours.forEach((hour) => {
@@ -148,9 +149,9 @@ export function renderScheduleSheet(
       if (hourIndex === -1) return;
       const cellX =
         LEFT_PADDING + leftWidth + Math.floor(hourIndex * hourWidth + 0.5);
-      const cellY = y + 8;
-      const cellWidth = Math.max(hourWidth - 2, 2);
-      const cellHeight = SHEET_ROW_HEIGHT - 16;
+      const cellY = y + 16;
+      const cellWidth = Math.max(hourWidth - 4, 4);
+      const cellHeight = SHEET_ROW_HEIGHT - 32;
       ctx.fillStyle = row.color || DEFAULT_COLOR;
       ctx.fillRect(cellX, cellY, cellWidth, cellHeight);
     });
@@ -162,7 +163,7 @@ function drawHeaderCell(
   x: number, y: number, width: number, text: string
 ) {
   ctx.fillStyle = "#111827";
-  ctx.font = "bold 14px sans-serif";
+  ctx.font = "bold 28px sans-serif";
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
   ctx.fillText(text, x + width / 2, y + SHEET_HEADER_HEIGHT / 2);

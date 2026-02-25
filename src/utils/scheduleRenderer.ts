@@ -178,14 +178,14 @@ function drawHeader(
   ctx.stroke();
 
   // 日付ボックス
-  const dateBoxMargin = 12;
+  const dateBoxMargin = 24;
   const dateBoxY = (layout.HEADER_BAND_HEIGHT - layout.DATE_BOX_HEIGHT) / 2;
   ctx.save();
   ctx.shadowColor = "rgba(0,0,0,0.08)";
-  ctx.shadowBlur = 8;
-  ctx.shadowOffsetY = 2;
+  ctx.shadowBlur = 16;
+  ctx.shadowOffsetY = 4;
   ctx.fillStyle = "rgba(255,255,255,0.88)";
-  roundRect(ctx, dateBoxMargin, dateBoxY, layout.DATE_BOX_WIDTH, layout.DATE_BOX_HEIGHT, 13);
+  roundRect(ctx, dateBoxMargin, dateBoxY, layout.DATE_BOX_WIDTH, layout.DATE_BOX_HEIGHT, 26);
   ctx.fill();
   ctx.restore();
 
@@ -208,7 +208,7 @@ function drawHeader(
   ctx.fillStyle = "#64748b";
   ctx.font = `500 ${layout.DATE_LINE2_SIZE}px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif`;
   const chars = line2.split("");
-  const charSpacing = 1.2;
+  const charSpacing = 2.4;
   const totalWidth =
     ctx.measureText(line2).width + (chars.length - 1) * charSpacing;
   let charX = centerX - totalWidth / 2;
@@ -228,7 +228,7 @@ function drawHeader(
   ctx.fillStyle = "#f8fafc";
   ctx.fillRect(0, rankHeaderY, layout.CANVAS_WIDTH, layout.RANK_HEADER_HEIGHT);
 
-  const headerFontSize = layout.RANK_HEADER_HEIGHT >= 46 ? 24 : 22;
+  const headerFontSize = layout.RANK_HEADER_HEIGHT >= 92 ? 48 : 44;
   let currentX = rankStartX;
 
   RANK_ORDER.forEach((rank) => {
@@ -428,9 +428,9 @@ function drawCastCards(
 
         ctx.save();
         ctx.shadowColor = "rgba(0,0,0,0.06)";
-        ctx.shadowBlur = 4;
+        ctx.shadowBlur = 8;
         ctx.shadowOffsetX = 0;
-        ctx.shadowOffsetY = 2;
+        ctx.shadowOffsetY = 4;
         roundRect(ctx, cardX, cardY, layout.CARD_SIZE, layout.CARD_SIZE, layout.CARD_RADIUS);
         ctx.clip();
         if (img) {
@@ -449,7 +449,7 @@ function drawCastCards(
         ctx.restore();
 
         ctx.strokeStyle = RANK_COLORS[getRankFromCast(cast)] + "60";
-        ctx.lineWidth = 1.5;
+        ctx.lineWidth = 3;
         roundRect(ctx, cardX, cardY, layout.CARD_SIZE, layout.CARD_SIZE, layout.CARD_RADIUS);
         ctx.stroke();
       });
