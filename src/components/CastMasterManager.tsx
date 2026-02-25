@@ -4,7 +4,6 @@ import { Label } from './ui/label';
 import { Trash2, Download } from 'lucide-react';
 import { toast } from 'sonner@2.0.3';
 import { ExternalLink } from 'lucide-react';
-import { CastMasterImport } from './CastMasterImport';
 import { RankListEditor } from './RankListEditor';
 import { CastListItem } from './CastListItem';
 import { MASTER_SHEET_URL } from '../config';
@@ -90,10 +89,6 @@ export function CastMasterManager({ castMasters, onCastMastersChange, rankLists,
             参照スプレッドシートを開く
           </a>
         )}
-        <CastMasterImport
-          castMasters={castMasters}
-          onCastMastersChange={onCastMastersChange}
-        />
 
         <RankListEditor
           rankLists={rankLists}
