@@ -171,21 +171,21 @@ function drawHeader(
   ctx.fillStyle = "#fafafa";
   ctx.fillRect(0, 0, layout.CANVAS_WIDTH, layout.HEADER_BAND_HEIGHT);
   ctx.strokeStyle = "#e5e7eb";
-  ctx.lineWidth = 1;
+  ctx.lineWidth = 2;
   ctx.beginPath();
   ctx.moveTo(0, layout.HEADER_BAND_HEIGHT);
   ctx.lineTo(layout.CANVAS_WIDTH, layout.HEADER_BAND_HEIGHT);
   ctx.stroke();
 
   // 日付ボックス
-  const dateBoxMargin = 24;
+  const dateBoxMargin = 48;
   const dateBoxY = (layout.HEADER_BAND_HEIGHT - layout.DATE_BOX_HEIGHT) / 2;
   ctx.save();
   ctx.shadowColor = "rgba(0,0,0,0.08)";
-  ctx.shadowBlur = 16;
-  ctx.shadowOffsetY = 4;
+  ctx.shadowBlur = 32;
+  ctx.shadowOffsetY = 8;
   ctx.fillStyle = "rgba(255,255,255,0.88)";
-  roundRect(ctx, dateBoxMargin, dateBoxY, layout.DATE_BOX_WIDTH, layout.DATE_BOX_HEIGHT, 26);
+  roundRect(ctx, dateBoxMargin, dateBoxY, layout.DATE_BOX_WIDTH, layout.DATE_BOX_HEIGHT, 52);
   ctx.fill();
   ctx.restore();
 
@@ -208,7 +208,7 @@ function drawHeader(
   ctx.fillStyle = "#64748b";
   ctx.font = `500 ${layout.DATE_LINE2_SIZE}px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif`;
   const chars = line2.split("");
-  const charSpacing = 2.4;
+  const charSpacing = 4.8;
   const totalWidth =
     ctx.measureText(line2).width + (chars.length - 1) * charSpacing;
   let charX = centerX - totalWidth / 2;
@@ -228,7 +228,7 @@ function drawHeader(
   ctx.fillStyle = "#f8fafc";
   ctx.fillRect(0, rankHeaderY, layout.CANVAS_WIDTH, layout.RANK_HEADER_HEIGHT);
 
-  const headerFontSize = layout.RANK_HEADER_HEIGHT >= 92 ? 48 : 44;
+  const headerFontSize = layout.RANK_HEADER_HEIGHT >= 184 ? 96 : 88;
   let currentX = rankStartX;
 
   RANK_ORDER.forEach((rank) => {
@@ -260,7 +260,7 @@ function drawHeader(
   });
 
   ctx.strokeStyle = "#e0e0e0";
-  ctx.lineWidth = 1;
+  ctx.lineWidth = 2;
   ctx.beginPath();
   ctx.moveTo(0, layout.HEADER_BAND_HEIGHT + layout.RANK_HEADER_HEIGHT);
   ctx.lineTo(rankStartX, layout.HEADER_BAND_HEIGHT + layout.RANK_HEADER_HEIGHT);
@@ -313,7 +313,7 @@ function drawTimeBlock(
   ctx.fillStyle = "#f8f9fa";
   ctx.fillRect(0, y, layout.TIME_LABEL_WIDTH, blockHeight);
   ctx.strokeStyle = "#e5e7eb";
-  ctx.lineWidth = 1;
+  ctx.lineWidth = 2;
   ctx.beginPath();
   ctx.moveTo(layout.TIME_LABEL_WIDTH, y);
   ctx.lineTo(layout.TIME_LABEL_WIDTH, y + blockHeight);
@@ -329,7 +329,7 @@ function drawTimeBlock(
   ctx.fillStyle = "#f8f9fa";
   ctx.fillRect(rightX, y, layout.TIME_LABEL_WIDTH, blockHeight);
   ctx.strokeStyle = "#e5e7eb";
-  ctx.lineWidth = 1;
+  ctx.lineWidth = 2;
   ctx.beginPath();
   ctx.moveTo(rightX, y);
   ctx.lineTo(rightX, y + blockHeight);
@@ -342,7 +342,7 @@ function drawTimeBlock(
 
   // 下部区切り線
   ctx.strokeStyle = "#f3f4f6";
-  ctx.lineWidth = 2;
+  ctx.lineWidth = 4;
   ctx.beginPath();
   ctx.moveTo(0, y + blockHeight);
   ctx.lineTo(layout.CANVAS_WIDTH, y + blockHeight);
@@ -428,9 +428,9 @@ function drawCastCards(
 
         ctx.save();
         ctx.shadowColor = "rgba(0,0,0,0.06)";
-        ctx.shadowBlur = 8;
+        ctx.shadowBlur = 16;
         ctx.shadowOffsetX = 0;
-        ctx.shadowOffsetY = 4;
+        ctx.shadowOffsetY = 8;
         roundRect(ctx, cardX, cardY, layout.CARD_SIZE, layout.CARD_SIZE, layout.CARD_RADIUS);
         ctx.clip();
         if (img) {
@@ -449,7 +449,7 @@ function drawCastCards(
         ctx.restore();
 
         ctx.strokeStyle = RANK_COLORS[getRankFromCast(cast)] + "60";
-        ctx.lineWidth = 3;
+        ctx.lineWidth = 6;
         roundRect(ctx, cardX, cardY, layout.CARD_SIZE, layout.CARD_SIZE, layout.CARD_RADIUS);
         ctx.stroke();
       });
