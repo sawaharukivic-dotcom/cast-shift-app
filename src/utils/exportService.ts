@@ -197,11 +197,11 @@ async function _buildSafeBlob(ctx: ExportContext): Promise<Blob | null> {
       }
     });
   });
-  toast.info(`[2a] ${castUrlMap.size}枚の画像をCORS読み込み中...`);
+  toast.info(`[2a] ${castUrlMap.size}枚の画像をCORS読み込み中...`, { duration: 10000 });
   const { imageMap, failedNames } = await loadCanvasImages(
     castUrlMap.keys(), castUrlMap, undefined, true /* corsOnly */
   );
-  toast.info(`[2b] 読み込み完了: 成功${imageMap.size}枚, 失敗${failedNames.length}枚`);
+  toast.info(`[2b] 読み込み完了: 成功${imageMap.size}枚, 失敗${failedNames.length}枚`, { duration: 10000 });
 
   const safeCanvas = document.createElement("canvas");
   if (ctx.previewMode === "sheet") {
