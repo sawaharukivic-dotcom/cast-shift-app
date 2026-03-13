@@ -140,7 +140,21 @@ export async function handleExportAndUpload(ctx: ExportContext) {
   await new Promise((resolve) => setTimeout(resolve, 500));
 
   const fileName = `schedule_${ctx.displayDate.replace(/[\/\(\)]/g, "_")}.png`;
-  const blob = await canvasToBlob(canvas);
+
+  // tainted canvas 対策: toBlob が失敗したらクリーンな canvas で再生成
+  let blob = await canvasToBlob(canvas).catch(() => null);
+
+  if (!blob) {
+    try {
+      const href = canvas.toDataURL("image/png");
+      // dataURL が取れたらそこから blob 化
+      const res = await fetch(href);
+      blob = await res.blob();
+    } catch {
+      // tainted — クリーンな canvas を再生成
+      blob = await _buildSafeBlob(ctx);
+    }
+  }
 
   if (!blob) {
     toast.error("画像の生成に失敗しました");
@@ -163,6 +177,40 @@ export async function handleExportAndUpload(ctx: ExportContext) {
     logger.error("[exportService] Drive upload failed:", err);
     toast.error("Driveアップロードに失敗しました");
   }
+}
+
+/** tainted canvas 時にクリーンな canvas から Blob を生成する */
+async function _buildSafeBlob(ctx: ExportContext): Promise<Blob | null> {
+  const safeCanvas = document.createElement("canvas");
+  const safeInput = buildScheduleRenderInput(
+    ctx.displayDate,
+    ctx.timeSlots,
+    ctx.rankLists,
+    ctx.castMasters,
+    ctx.logoImgRef.current
+  );
+  if (ctx.previewMode === "sheet") {
+    const rows = buildSheetRows(safeInput.timeSlots);
+    const calculatedHeight =
+      SHEET_TITLE_HEIGHT +
+      SHEET_HEADER_HEIGHT +
+      rows.length * SHEET_ROW_HEIGHT +
+      SHEET_BOTTOM_PADDING;
+    safeCanvas.width = SHEET_CANVAS_WIDTH;
+    safeCanvas.height = Math.max(SHEET_MIN_HEIGHT, calculatedHeight);
+  } else {
+    safeCanvas.width = getCanvasWidth(ctx.aspectRatio);
+    safeCanvas.height = calculateCanvasHeight(safeInput.timeSlots, ctx.aspectRatio);
+  }
+  const safeCtx = safeCanvas.getContext("2d");
+  if (!safeCtx) return null;
+
+  if (ctx.previewMode === "sheet") {
+    renderScheduleSheet(safeCtx, safeInput, new Map());
+  } else {
+    renderSchedule(safeCtx, safeInput, new Map(), ctx.aspectRatio);
+  }
+  return canvasToBlob(safeCanvas);
 }
 
 interface WeekBatchExportContext {
