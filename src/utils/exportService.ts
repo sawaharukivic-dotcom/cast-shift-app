@@ -181,7 +181,6 @@ export async function handleExportAndUpload(ctx: ExportContext) {
 
 /** tainted canvas 時にクリーンな canvas から Blob を生成する */
 async function _buildSafeBlob(ctx: ExportContext): Promise<Blob | null> {
-  const safeCanvas = document.createElement("canvas");
   const safeInput = buildScheduleRenderInput(
     ctx.displayDate,
     ctx.timeSlots,
@@ -189,6 +188,19 @@ async function _buildSafeBlob(ctx: ExportContext): Promise<Blob | null> {
     ctx.castMasters,
     ctx.logoImgRef.current
   );
+
+  // CORS対応URLで画像を再読み込み（thumbnail/lh3 → Canvas汚染なし）
+  const castUrlMap = new Map<string, string>();
+  safeInput.timeSlots.forEach((slot) => {
+    slot.casts.forEach((cast) => {
+      if (cast.imageUrl?.trim() && cast.imageUrl !== PLACEHOLDER_IMAGE) {
+        castUrlMap.set(cast.imageUrl, cast.name);
+      }
+    });
+  });
+  const { imageMap } = await loadCanvasImages(castUrlMap.keys(), castUrlMap);
+
+  const safeCanvas = document.createElement("canvas");
   if (ctx.previewMode === "sheet") {
     const rows = buildSheetRows(safeInput.timeSlots);
     const calculatedHeight =
@@ -200,15 +212,15 @@ async function _buildSafeBlob(ctx: ExportContext): Promise<Blob | null> {
     safeCanvas.height = Math.max(SHEET_MIN_HEIGHT, calculatedHeight);
   } else {
     safeCanvas.width = getCanvasWidth(ctx.aspectRatio);
-    safeCanvas.height = calculateCanvasHeight(safeInput.timeSlots, ctx.aspectRatio);
+    safeCanvas.height = calculateCanvasHeight(safeInput.timeSlots, ctx.aspectRatio, imageMap);
   }
   const safeCtx = safeCanvas.getContext("2d");
   if (!safeCtx) return null;
 
   if (ctx.previewMode === "sheet") {
-    renderScheduleSheet(safeCtx, safeInput, new Map());
+    renderScheduleSheet(safeCtx, safeInput, imageMap);
   } else {
-    renderSchedule(safeCtx, safeInput, new Map(), ctx.aspectRatio);
+    renderSchedule(safeCtx, safeInput, imageMap, ctx.aspectRatio);
   }
   return canvasToBlob(safeCanvas);
 }
