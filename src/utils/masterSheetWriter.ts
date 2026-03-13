@@ -12,7 +12,7 @@ export function appendToMasterSheet(casts: CastMaster[]): void {
   fetch(MASTER_SHEET_WRITE_URL, {
     method: "POST",
     mode: "no-cors",
-    body: JSON.stringify({ casts }),
+    body: JSON.stringify({ action: "appendCast", casts }),
   }).catch((err) => {
     logger.warn("[masterSheetWriter] スプレッドシートへの書き込みに失敗:", err);
   });

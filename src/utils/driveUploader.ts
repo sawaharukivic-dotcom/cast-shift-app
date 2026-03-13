@@ -1,23 +1,28 @@
 /**
  * GAS経由でGoogle Driveに画像をアップロードする
+ * 既存の MASTER_SHEET_WRITE_URL に action: "uploadImage" で送信
  */
 
-import { IMAGE_UPLOAD_GAS_URL } from "../config";
+import { MASTER_SHEET_WRITE_URL } from "../config";
 import { logger } from "./logger";
 
 export async function uploadToDrive(
   blob: Blob,
   fileName: string
 ): Promise<{ success: boolean; fileUrl?: string; error?: string }> {
-  if (!IMAGE_UPLOAD_GAS_URL) {
-    return { success: false, error: "IMAGE_UPLOAD_GAS_URL が未設定です" };
+  if (!MASTER_SHEET_WRITE_URL) {
+    return { success: false, error: "MASTER_SHEET_WRITE_URL が未設定です" };
   }
 
   const base64 = await blobToBase64(blob);
 
-  const res = await fetch(IMAGE_UPLOAD_GAS_URL, {
+  const res = await fetch(MASTER_SHEET_WRITE_URL, {
     method: "POST",
-    body: JSON.stringify({ fileName, imageBase64: base64 }),
+    body: JSON.stringify({
+      action: "uploadImage",
+      fileName,
+      imageBase64: base64,
+    }),
   });
 
   if (!res.ok) {
