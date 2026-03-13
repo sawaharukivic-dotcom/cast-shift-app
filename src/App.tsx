@@ -81,6 +81,7 @@ export default function App() {
   const handleExportAndUpload = () =>
     doExportAndUpload({
       displayDate,
+      dateKey: selectedDateKey || "",
       timeSlots,
       rankLists,
       castMasters,

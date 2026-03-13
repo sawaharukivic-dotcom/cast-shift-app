@@ -33,6 +33,7 @@ import {
 
 interface ExportContext {
   displayDate: string;
+  dateKey: string; // "YYYY-MM-DD"
   timeSlots: TimeSlot[];
   rankLists: RankLists;
   castMasters: CastMaster[];
@@ -56,7 +57,7 @@ export async function handleExport(ctx: ExportContext) {
 
   await new Promise((resolve) => setTimeout(resolve, 500));
 
-  const fileName = `schedule_${ctx.displayDate.replace(/[\/\(\)]/g, "_")}.png`;
+  const fileName = `${ctx.dateKey.replace(/-/g, "")}_ScheduleImage.png`;
 
   const blob = await canvasToBlob(canvas);
 
@@ -140,7 +141,7 @@ export async function handleExportAndUpload(ctx: ExportContext) {
   toast.info("画像を生成中...");
   await new Promise((resolve) => setTimeout(resolve, 500));
 
-  const fileName = `schedule_${ctx.displayDate.replace(/[\/\(\)]/g, "_")}.png`;
+  const fileName = `${ctx.dateKey.replace(/-/g, "")}_ScheduleImage.png`;
 
   // 表示中canvasからBlob化を試行（3秒タイムアウト）
   let blob = await Promise.race([
