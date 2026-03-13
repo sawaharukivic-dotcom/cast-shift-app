@@ -131,8 +131,12 @@ export async function handleExportAndUpload(ctx: ExportContext) {
     ctx.previewMode === "sheet"
       ? ctx.sheetCanvasRef.current
       : ctx.timelineCanvasRef.current;
-  if (!canvas) return;
+  if (!canvas) {
+    toast.error("キャンバスが見つかりません");
+    return;
+  }
 
+  toast.info("画像を生成中...");
   await new Promise((resolve) => setTimeout(resolve, 500));
 
   const fileName = `schedule_${ctx.displayDate.replace(/[\/\(\)]/g, "_")}.png`;
