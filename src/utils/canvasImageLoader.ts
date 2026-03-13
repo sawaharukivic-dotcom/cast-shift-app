@@ -117,11 +117,13 @@ export async function loadCanvasImages(
     Array.from(urls).map(async (originalUrl) => {
       if (!originalUrl?.trim()) return;
 
-      // キャッシュ済み Image があれば即返す
-      const cachedImg = getCachedImage(originalUrl);
-      if (cachedImg) {
-        imageMap.set(originalUrl, cachedImg);
-        return;
+      // キャッシュ済み Image があれば即返す（corsOnly 時はスキップ）
+      if (!corsOnly) {
+        const cachedImg = getCachedImage(originalUrl);
+        if (cachedImg) {
+          imageMap.set(originalUrl, cachedImg);
+          return;
+        }
       }
 
       // 候補URL構築（キャッシュ済みURLを先頭に）
