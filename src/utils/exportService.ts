@@ -138,7 +138,7 @@ export async function handleExportAndUpload(ctx: ExportContext) {
     return;
   }
 
-  toast.info("画像を生成中...");
+  toast.info("[1/3] 画像を生成中...");
   await new Promise((resolve) => setTimeout(resolve, 500));
 
   const fileName = `${ctx.dateKey.replace(/-/g, "")}_ScheduleImage.png`;
@@ -151,6 +151,7 @@ export async function handleExportAndUpload(ctx: ExportContext) {
 
   // 失敗時はGAS経由Base64画像でクリーンcanvasを再生成
   if (!blob) {
+    toast.info("[1/3] サーバーから画像を取得中...");
     blob = await _buildSafeBlob(ctx);
   }
 
@@ -160,10 +161,11 @@ export async function handleExportAndUpload(ctx: ExportContext) {
   }
 
   // ローカルDL
+  toast.info("[2/3] ダウンロード中...");
   downloadBlob(blob, fileName);
 
   // Google Driveアップロード
-  toast.info("Google Driveにアップロード中...");
+  toast.info("[3/3] Google Driveにアップロード中...");
   try {
     const result = await uploadToDrive(blob, fileName);
     if (result.success) {
