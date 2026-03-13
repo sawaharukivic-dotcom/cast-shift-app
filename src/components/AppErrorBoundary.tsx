@@ -34,10 +34,13 @@ export class AppErrorBoundary extends Component<
         );
       }
       return (
-        <div className="p-4">
-          <div>アプリ内エラーが発生しました。</div>
-          <pre className="mt-2 text-xs text-red-600 whitespace-pre-wrap">
-            {this.state.error.message}
+        <div className="p-4 bg-red-50 border border-red-200 rounded m-4">
+          <div className="font-bold text-red-700">アプリ内エラーが発生しました。</div>
+          <pre className="mt-2 text-sm text-red-600 whitespace-pre-wrap break-all">
+            {String(this.state.error)}
+          </pre>
+          <pre className="mt-2 text-xs text-red-500 whitespace-pre-wrap break-all">
+            {this.state.error.stack || "スタックなし"}
           </pre>
         </div>
       );
