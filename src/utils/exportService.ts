@@ -142,16 +142,14 @@ export async function handleExportAndUpload(ctx: ExportContext) {
 
   const fileName = `schedule_${ctx.displayDate.replace(/[\/\(\)]/g, "_")}.png`;
 
-  // ステップ1: 表示中canvasからBlob化を試行（3秒タイムアウト）
-  toast.info("[1/4] キャンバスからBlob化中...");
+  // 表示中canvasからBlob化を試行（3秒タイムアウト）
   let blob = await Promise.race([
     canvasToBlob(canvas).catch(() => null),
     new Promise<null>((r) => setTimeout(() => r(null), 3000)),
   ]);
 
-  // ステップ2: 失敗時はCORS専用画像でクリーンcanvasを再生成
+  // 失敗時はGAS経由Base64画像でクリーンcanvasを再生成
   if (!blob) {
-    toast.info("[2/4] CORS画像を読み込み中...");
     blob = await _buildSafeBlob(ctx);
   }
 
@@ -160,12 +158,11 @@ export async function handleExportAndUpload(ctx: ExportContext) {
     return;
   }
 
-  // ステップ3: ローカルDL
-  toast.info("[3/4] ダウンロード中...");
+  // ローカルDL
   downloadBlob(blob, fileName);
 
-  // ステップ4: Google Driveアップロード
-  toast.info("[4/4] Google Driveにアップロード中...");
+  // Google Driveアップロード
+  toast.info("Google Driveにアップロード中...");
   try {
     const result = await uploadToDrive(blob, fileName);
     if (result.success) {
@@ -201,10 +198,8 @@ async function _buildSafeBlob(ctx: ExportContext): Promise<Blob | null> {
     });
   });
 
-  // GAS経由でBase64 data URLを取得
-  toast.info(`${imageUrls.length}枚の画像をサーバーから取得中...`, { duration: 15000 });
+  // GAS経由でBase64 data URLを取得（起動時にプリフェッチ済みならキャッシュから即返る）
   const dataUrlMap = await fetchImagesViaGas(imageUrls);
-  toast.info(`画像取得完了: ${dataUrlMap.size}/${imageUrls.length}枚`, { duration: 5000 });
 
   // data URLからHTMLImageElementを生成（同一オリジン → Canvas汚染なし）
   const imageMap = new Map<string, HTMLImageElement>();
