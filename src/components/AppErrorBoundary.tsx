@@ -33,7 +33,14 @@ export class AppErrorBoundary extends Component<
           </div>
         );
       }
-      return <div>アプリ内エラーが発生しました。</div>;
+      return (
+        <div className="p-4">
+          <div>アプリ内エラーが発生しました。</div>
+          <pre className="mt-2 text-xs text-red-600 whitespace-pre-wrap">
+            {this.state.error.message}
+          </pre>
+        </div>
+      );
     }
     return this.props.children;
   }
