@@ -4,6 +4,7 @@
  * action で処理を分岐:
  *   "appendCast"   — スプレッドシートにキャストを追加
  *   "uploadImage"  — Google Driveに画像をアップロード（_data!C2 のフォルダ）
+ *   "fetchImages"  — Google DriveファイルIDから画像をBase64で返す
  *   (未指定)       — 後方互換: appendCast として動作
  *
  * 設定手順:
@@ -26,6 +27,8 @@ function doPost(e) {
         return _appendCast(data);
       case "uploadImage":
         return _uploadImage(data);
+      case "fetchImages":
+        return _fetchImages(data);
       default:
         return _jsonResponse({ success: false, error: "不明な action: " + action });
     }
@@ -82,6 +85,35 @@ function _uploadImage(data) {
     success: true,
     fileId: file.getId(),
     fileUrl: file.getUrl(),
+  });
+}
+
+/** Google DriveファイルIDから画像をBase64で取得して返す */
+function _fetchImages(data) {
+  var fileIds = data.fileIds; // ["fileId1", "fileId2", ...]
+  if (!fileIds || !fileIds.length) {
+    return _jsonResponse({ success: false, error: "fileIds が空です" });
+  }
+
+  var images = {};
+  var errors = [];
+
+  for (var i = 0; i < fileIds.length; i++) {
+    try {
+      var file = DriveApp.getFileById(fileIds[i]);
+      var blob = file.getBlob();
+      var base64 = Utilities.base64Encode(blob.getBytes());
+      var mimeType = blob.getContentType();
+      images[fileIds[i]] = "data:" + mimeType + ";base64," + base64;
+    } catch (e) {
+      errors.push(fileIds[i]);
+    }
+  }
+
+  return _jsonResponse({
+    success: true,
+    images: images,
+    errors: errors,
   });
 }
 

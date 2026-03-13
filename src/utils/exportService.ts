@@ -13,6 +13,7 @@ import { createDefaultSlots } from "./scheduleDefaults";
 import { canvasToBlob, downloadBlob, triggerDownload } from "./downloadHelper";
 import { uploadToDrive } from "./driveUploader";
 import { loadCanvasImages } from "./canvasImageLoader";
+import { fetchImagesViaGas } from "./gasFetchImages";
 import { logger } from "./logger";
 import {
   getCanvasWidth,
@@ -178,7 +179,7 @@ export async function handleExportAndUpload(ctx: ExportContext) {
   }
 }
 
-/** tainted canvas 時にクリーンな canvas から Blob を生成する */
+/** tainted canvas 時にGAS経由でBase64画像を取得し、クリーンな canvas から Blob を生成する */
 async function _buildSafeBlob(ctx: ExportContext): Promise<Blob | null> {
   const safeInput = buildScheduleRenderInput(
     ctx.displayDate,
@@ -188,20 +189,39 @@ async function _buildSafeBlob(ctx: ExportContext): Promise<Blob | null> {
     ctx.logoImgRef.current
   );
 
-  // CORS専用モードで画像を再読み込み（Canvas汚染を防止）
-  const castUrlMap = new Map<string, string>();
+  // 画像URL一覧を収集
+  const imageUrls: string[] = [];
   safeInput.timeSlots.forEach((slot) => {
     slot.casts.forEach((cast) => {
       if (cast.imageUrl?.trim() && cast.imageUrl !== PLACEHOLDER_IMAGE) {
-        castUrlMap.set(cast.imageUrl, cast.name);
+        if (!imageUrls.includes(cast.imageUrl)) {
+          imageUrls.push(cast.imageUrl);
+        }
       }
     });
   });
-  toast.info(`[2a] ${castUrlMap.size}枚の画像をCORS読み込み中...`, { duration: 10000 });
-  const { imageMap, failedNames } = await loadCanvasImages(
-    castUrlMap.keys(), castUrlMap, undefined, true /* corsOnly */
+
+  // GAS経由でBase64 data URLを取得
+  toast.info(`${imageUrls.length}枚の画像をサーバーから取得中...`, { duration: 15000 });
+  const dataUrlMap = await fetchImagesViaGas(imageUrls);
+  toast.info(`画像取得完了: ${dataUrlMap.size}/${imageUrls.length}枚`, { duration: 5000 });
+
+  // data URLからHTMLImageElementを生成（同一オリジン → Canvas汚染なし）
+  const imageMap = new Map<string, HTMLImageElement>();
+  await Promise.all(
+    imageUrls.map(async (originalUrl) => {
+      const dataUrl = dataUrlMap.get(originalUrl);
+      if (!dataUrl) return;
+      try {
+        const img = new Image();
+        img.src = dataUrl;
+        await img.decode();
+        imageMap.set(originalUrl, img);
+      } catch {
+        // skip
+      }
+    })
   );
-  toast.info(`[2b] 読み込み完了: 成功${imageMap.size}枚, 失敗${failedNames.length}枚`, { duration: 10000 });
 
   const safeCanvas = document.createElement("canvas");
   if (ctx.previewMode === "sheet") {
@@ -226,15 +246,7 @@ async function _buildSafeBlob(ctx: ExportContext): Promise<Blob | null> {
     renderSchedule(safeCtx, safeInput, imageMap, ctx.aspectRatio);
   }
 
-  toast.info("[2c] safeCanvas Blob化中...");
-  const result = await Promise.race([
-    canvasToBlob(safeCanvas).catch(() => null),
-    new Promise<null>((r) => setTimeout(() => r(null), 5000)),
-  ]);
-  if (!result) {
-    toast.error("[2c] safeCanvas Blob化失敗（タイムアウトまたはエラー）");
-  }
-  return result;
+  return canvasToBlob(safeCanvas);
 }
 
 interface WeekBatchExportContext {
