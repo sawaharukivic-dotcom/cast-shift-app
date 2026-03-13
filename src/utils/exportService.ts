@@ -11,6 +11,7 @@ import { buildScheduleRenderInput } from "./scheduleAdapter";
 import { formatDateForDisplay } from "./dateFormatter";
 import { createDefaultSlots } from "./scheduleDefaults";
 import { canvasToBlob, downloadBlob, triggerDownload } from "./downloadHelper";
+import { uploadToDrive } from "./driveUploader";
 import { loadCanvasImages } from "./canvasImageLoader";
 import { logger } from "./logger";
 import {
@@ -119,6 +120,44 @@ export async function handleExport(ctx: ExportContext) {
     toast.success("PNG画像を書き出しました");
   } catch {
     toast.error("PNG書き出しに失敗しました");
+  }
+}
+
+/**
+ * PNG書き出し + Google Driveアップロード
+ */
+export async function handleExportAndUpload(ctx: ExportContext) {
+  const canvas =
+    ctx.previewMode === "sheet"
+      ? ctx.sheetCanvasRef.current
+      : ctx.timelineCanvasRef.current;
+  if (!canvas) return;
+
+  await new Promise((resolve) => setTimeout(resolve, 500));
+
+  const fileName = `schedule_${ctx.displayDate.replace(/[\/\(\)]/g, "_")}.png`;
+  const blob = await canvasToBlob(canvas);
+
+  if (!blob) {
+    toast.error("画像の生成に失敗しました");
+    return;
+  }
+
+  // ローカルDL
+  downloadBlob(blob, fileName);
+
+  // Google Driveアップロード
+  toast.info("Google Driveにアップロード中...");
+  try {
+    const result = await uploadToDrive(blob, fileName);
+    if (result.success) {
+      toast.success("Google Driveにアップロードしました");
+    } else {
+      toast.error(`Driveアップロード失敗: ${result.error ?? "不明なエラー"}`);
+    }
+  } catch (err) {
+    logger.error("[exportService] Drive upload failed:", err);
+    toast.error("Driveアップロードに失敗しました");
   }
 }
 

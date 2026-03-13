@@ -15,7 +15,10 @@ import { Toaster } from "./components/ui/sonner";
 import type { AspectRatio } from "./types/renderTypes";
 import { buildScheduleRenderInput } from "./utils/scheduleAdapter";
 import { normalizeDateString, normalizeDateKey } from "./utils/dateFormatter";
-import { handleWeekBatchExport as doWeekBatchExport } from "./utils/exportService";
+import {
+  handleExportAndUpload as doExportAndUpload,
+  handleWeekBatchExport as doWeekBatchExport,
+} from "./utils/exportService";
 
 import { useLocalStorage } from "./hooks/useLocalStorage";
 import { useCastMasterState } from "./hooks/useCastMasterState";
@@ -74,6 +77,20 @@ export default function App() {
       ),
     [displayDate, timeSlots, rankLists, castMasters, logoDataUrl] // eslint-disable-line
   );
+
+  const handleExportAndUpload = () =>
+    doExportAndUpload({
+      displayDate,
+      timeSlots,
+      rankLists,
+      castMasters,
+      logoImgRef,
+      logoDataUrl,
+      previewMode,
+      aspectRatio,
+      timelineCanvasRef,
+      sheetCanvasRef,
+    });
 
   const handleWeekBatchExport = () =>
     doWeekBatchExport({
@@ -186,6 +203,7 @@ export default function App() {
             onSelectedDateKeyChange={setSelectedDateKey}
             onClearAllCasts={handleClearAllCasts}
             onWeekBatchExport={handleWeekBatchExport}
+            onExportAndUpload={handleExportAndUpload}
             timelineCanvasRef={timelineCanvasRef}
             sheetCanvasRef={sheetCanvasRef}
             previewMode={previewMode}

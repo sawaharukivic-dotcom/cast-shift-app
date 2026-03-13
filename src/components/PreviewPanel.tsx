@@ -3,7 +3,7 @@ import { ScheduleCanvas } from "./ScheduleCanvas";
 import { ScheduleSheetCanvas } from "./ScheduleSheetCanvas";
 import { Button } from "./ui/button";
 import { Tabs, TabsList, TabsTrigger } from "./ui/tabs";
-import { Download, Trash2 } from "lucide-react";
+import { Download, Trash2, Upload } from "lucide-react";
 import type { ScheduleRenderInput, AspectRatio } from "../types/renderTypes";
 
 interface PreviewPanelProps {
@@ -14,6 +14,7 @@ interface PreviewPanelProps {
   onSelectedDateKeyChange: (key: string) => void;
   onClearAllCasts: () => void;
   onWeekBatchExport: () => void;
+  onExportAndUpload: () => void;
   /** 外部からcanvasRefを受け取るためのコールバック */
   timelineCanvasRef: React.RefObject<HTMLCanvasElement | null>;
   sheetCanvasRef: React.RefObject<HTMLCanvasElement | null>;
@@ -32,6 +33,7 @@ export function PreviewPanel({
   onSelectedDateKeyChange,
   onClearAllCasts,
   onWeekBatchExport,
+  onExportAndUpload,
   timelineCanvasRef,
   sheetCanvasRef,
   previewMode,
@@ -151,9 +153,16 @@ export function PreviewPanel({
           />
         )}
       </div>
-      <p className="mt-2 text-xs text-gray-500 text-center">
-        画像を右クリック →「名前を付けて画像を保存」でダウンロードできます
-      </p>
+      <div className="mt-3 flex justify-center">
+        <Button
+          onClick={onExportAndUpload}
+          className="gap-2"
+        >
+          <Download className="size-4" />
+          保存 & Drive送信
+          <Upload className="size-4" />
+        </Button>
+      </div>
     </div>
   );
 }
