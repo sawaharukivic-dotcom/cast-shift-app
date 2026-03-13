@@ -141,14 +141,16 @@ export async function handleExportAndUpload(ctx: ExportContext) {
 
   const fileName = `schedule_${ctx.displayDate.replace(/[\/\(\)]/g, "_")}.png`;
 
-  // tainted canvas 対策: toBlob にタイムアウト付きで試行し、
-  // 失敗したらCORS専用の画像でクリーンな canvas を再生成
+  // ステップ1: 表示中canvasからBlob化を試行（3秒タイムアウト）
+  toast.info("[1/4] キャンバスからBlob化中...");
   let blob = await Promise.race([
     canvasToBlob(canvas).catch(() => null),
     new Promise<null>((r) => setTimeout(() => r(null), 3000)),
   ]);
 
+  // ステップ2: 失敗時はCORS専用画像でクリーンcanvasを再生成
   if (!blob) {
+    toast.info("[2/4] CORS画像を読み込み中...");
     blob = await _buildSafeBlob(ctx);
   }
 
@@ -157,11 +159,12 @@ export async function handleExportAndUpload(ctx: ExportContext) {
     return;
   }
 
-  // ローカルDL
+  // ステップ3: ローカルDL
+  toast.info("[3/4] ダウンロード中...");
   downloadBlob(blob, fileName);
 
-  // Google Driveアップロード
-  toast.info("Google Driveにアップロード中...");
+  // ステップ4: Google Driveアップロード
+  toast.info("[4/4] Google Driveにアップロード中...");
   try {
     const result = await uploadToDrive(blob, fileName);
     if (result.success) {
@@ -194,9 +197,11 @@ async function _buildSafeBlob(ctx: ExportContext): Promise<Blob | null> {
       }
     });
   });
-  const { imageMap } = await loadCanvasImages(
+  toast.info(`[2a] ${castUrlMap.size}枚の画像をCORS読み込み中...`);
+  const { imageMap, failedNames } = await loadCanvasImages(
     castUrlMap.keys(), castUrlMap, undefined, true /* corsOnly */
   );
+  toast.info(`[2b] 読み込み完了: 成功${imageMap.size}枚, 失敗${failedNames.length}枚`);
 
   const safeCanvas = document.createElement("canvas");
   if (ctx.previewMode === "sheet") {
@@ -220,7 +225,16 @@ async function _buildSafeBlob(ctx: ExportContext): Promise<Blob | null> {
   } else {
     renderSchedule(safeCtx, safeInput, imageMap, ctx.aspectRatio);
   }
-  return canvasToBlob(safeCanvas);
+
+  toast.info("[2c] safeCanvas Blob化中...");
+  const result = await Promise.race([
+    canvasToBlob(safeCanvas).catch(() => null),
+    new Promise<null>((r) => setTimeout(() => r(null), 5000)),
+  ]);
+  if (!result) {
+    toast.error("[2c] safeCanvas Blob化失敗（タイムアウトまたはエラー）");
+  }
+  return result;
 }
 
 interface WeekBatchExportContext {
