@@ -88,14 +88,17 @@ function tryLoadImage(
  */
 async function loadSingleImage(
   url: string,
-  timeoutMs: number
+  timeoutMs: number,
+  corsOnly = false
 ): Promise<HTMLImageElement | null> {
   if (shouldSetCrossOrigin(url)) {
     const corsImg = await tryLoadImage(url, timeoutMs, true);
     if (corsImg) return corsImg;
+    if (corsOnly) return null; // エクスポート用: Canvas汚染を避ける
     // CORS失敗 → CORSなしでリトライ（Canvas汚染するが表示は可能）
     return tryLoadImage(url, timeoutMs, false);
   }
+  if (corsOnly) return null;
   return tryLoadImage(url, timeoutMs, false);
 }
 
@@ -104,7 +107,8 @@ async function loadSingleImage(
 export async function loadCanvasImages(
   urls: Iterable<string>,
   urlToNameMap?: Map<string, string>,
-  cancelled?: { current: boolean }
+  cancelled?: { current: boolean },
+  corsOnly = false
 ): Promise<{ imageMap: Map<string, HTMLImageElement>; failedNames: string[] }> {
   const imageMap = new Map<string, HTMLImageElement>();
   const failedNames: string[] = [];
@@ -138,7 +142,7 @@ export async function loadCanvasImages(
         for (const candidate of candidates) {
           if (cancelled?.current) return;
 
-          const img = await loadSingleImage(candidate, PER_ATTEMPT_TIMEOUT_MS);
+          const img = await loadSingleImage(candidate, PER_ATTEMPT_TIMEOUT_MS, corsOnly);
           if (img) {
             imageMap.set(originalUrl, img);
             if (candidate !== originalUrl) imageMap.set(candidate, img);

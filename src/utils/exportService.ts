@@ -189,7 +189,7 @@ async function _buildSafeBlob(ctx: ExportContext): Promise<Blob | null> {
     ctx.logoImgRef.current
   );
 
-  // CORS対応URLで画像を再読み込み（thumbnail/lh3 → Canvas汚染なし）
+  // CORS専用モードで画像を再読み込み（Canvas汚染を防止）
   const castUrlMap = new Map<string, string>();
   safeInput.timeSlots.forEach((slot) => {
     slot.casts.forEach((cast) => {
@@ -198,7 +198,9 @@ async function _buildSafeBlob(ctx: ExportContext): Promise<Blob | null> {
       }
     });
   });
-  const { imageMap } = await loadCanvasImages(castUrlMap.keys(), castUrlMap);
+  const { imageMap } = await loadCanvasImages(
+    castUrlMap.keys(), castUrlMap, undefined, true /* corsOnly */
+  );
 
   const safeCanvas = document.createElement("canvas");
   if (ctx.previewMode === "sheet") {
