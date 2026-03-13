@@ -138,7 +138,8 @@ export async function handleExportAndUpload(ctx: ExportContext) {
     return;
   }
 
-  toast.info("[1/3] 画像を生成中...");
+  const TOAST_ID = "export-progress";
+  toast.info("[1/3] 画像を生成中...", { id: TOAST_ID, duration: Infinity });
   await new Promise((resolve) => setTimeout(resolve, 500));
 
   const fileName = `${ctx.dateKey.replace(/-/g, "")}_ScheduleImage.png`;
@@ -151,31 +152,31 @@ export async function handleExportAndUpload(ctx: ExportContext) {
 
   // 失敗時はGAS経由Base64画像でクリーンcanvasを再生成
   if (!blob) {
-    toast.info("[1/3] サーバーから画像を取得中...");
+    toast.info("[1/3] サーバーから画像を取得中...", { id: TOAST_ID, duration: Infinity });
     blob = await _buildSafeBlob(ctx);
   }
 
   if (!blob) {
-    toast.error("画像の生成に失敗しました");
+    toast.error("画像の生成に失敗しました", { id: TOAST_ID });
     return;
   }
 
   // ローカルDL
-  toast.info("[2/3] ダウンロード中...");
+  toast.info("[2/3] ダウンロード中...", { id: TOAST_ID, duration: Infinity });
   downloadBlob(blob, fileName);
 
   // Google Driveアップロード
-  toast.info("[3/3] Google Driveにアップロード中...");
+  toast.info("[3/3] Google Driveにアップロード中...", { id: TOAST_ID, duration: Infinity });
   try {
     const result = await uploadToDrive(blob, fileName);
     if (result.success) {
-      toast.success("Google Driveにアップロードしました");
+      toast.success("Google Driveにアップロードしました", { id: TOAST_ID });
     } else {
-      toast.error(`Driveアップロード失敗: ${result.error ?? "不明なエラー"}`);
+      toast.error(`Driveアップロード失敗: ${result.error ?? "不明なエラー"}`, { id: TOAST_ID });
     }
   } catch (err) {
     logger.error("[exportService] Drive upload failed:", err);
-    toast.error("Driveアップロードに失敗しました");
+    toast.error("Driveアップロードに失敗しました", { id: TOAST_ID });
   }
 }
 
