@@ -141,19 +141,15 @@ export async function handleExportAndUpload(ctx: ExportContext) {
 
   const fileName = `schedule_${ctx.displayDate.replace(/[\/\(\)]/g, "_")}.png`;
 
-  // tainted canvas 対策: toBlob が失敗したらクリーンな canvas で再生成
-  let blob = await canvasToBlob(canvas).catch(() => null);
+  // tainted canvas 対策: toBlob にタイムアウト付きで試行し、
+  // 失敗したらCORS専用の画像でクリーンな canvas を再生成
+  let blob = await Promise.race([
+    canvasToBlob(canvas).catch(() => null),
+    new Promise<null>((r) => setTimeout(() => r(null), 3000)),
+  ]);
 
   if (!blob) {
-    try {
-      const href = canvas.toDataURL("image/png");
-      // dataURL が取れたらそこから blob 化
-      const res = await fetch(href);
-      blob = await res.blob();
-    } catch {
-      // tainted — クリーンな canvas を再生成
-      blob = await _buildSafeBlob(ctx);
-    }
+    blob = await _buildSafeBlob(ctx);
   }
 
   if (!blob) {
