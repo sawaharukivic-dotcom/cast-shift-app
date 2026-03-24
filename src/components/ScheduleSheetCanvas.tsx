@@ -1,6 +1,7 @@
 import { forwardRef, useEffect, useRef } from "react";
 import type { ScheduleRenderInput } from "../types/renderTypes";
 import { loadCanvasImages } from "../utils/canvasImageLoader";
+import { getAllCachedImages } from "../utils/imagePreloadCache";
 import {
   SHEET_CANVAS_WIDTH,
   SHEET_MIN_HEIGHT,
@@ -44,10 +45,23 @@ export const ScheduleSheetCanvas = forwardRef<
       new Set(rows.map((r) => r.imageUrl).filter((url) => url?.trim()))
     );
 
+    // キャッシュに全画像あれば即描画
+    const cached = getAllCachedImages(imageUrls);
+    if (cached) {
+      renderScheduleSheet(ctx, input, cached);
+      onRenderComplete?.();
+      return;
+    }
+
+    // キャッシュミスがある場合は従来のフロー
+    let cancelled = false;
     loadCanvasImages(imageUrls).then(({ imageMap }) => {
+      if (cancelled) return;
       renderScheduleSheet(ctx, input, imageMap);
       onRenderComplete?.();
     });
+
+    return () => { cancelled = true; };
   }, [input, canvasRef, onRenderComplete]);
 
   return (

@@ -16,7 +16,7 @@ import type { AspectRatio } from "./types/renderTypes";
 import { buildScheduleRenderInput } from "./utils/scheduleAdapter";
 import { normalizeDateString, normalizeDateKey } from "./utils/dateFormatter";
 import {
-  handleExport as doExport,
+  handleExportAndUpload as doExportAndUpload,
   handleWeekBatchExport as doWeekBatchExport,
 } from "./utils/exportService";
 
@@ -35,7 +35,7 @@ export default function App() {
   const { safeSetItem } = useLocalStorage();
   const { castMasters, setCastMasters, rankLists, setRankLists, masterFetchDone } =
     useCastMasterState(safeSetItem);
-  const { imagesReady, loadedCount, totalCount } = useImagePreloader(castMasters, masterFetchDone);
+  const { imagesReady, loadedCount, totalCount, prefetchProgress } = useImagePreloader(castMasters, masterFetchDone);
 
   const schedule = useScheduleState(castMasters, rankLists, safeSetItem);
   const {
@@ -79,7 +79,7 @@ export default function App() {
   );
 
   const handleExportAndUpload = () =>
-    doExport({
+    doExportAndUpload({
       displayDate,
       dateKey: selectedDateKey || "",
       timeSlots,
@@ -205,6 +205,7 @@ export default function App() {
             onClearAllCasts={handleClearAllCasts}
             onWeekBatchExport={handleWeekBatchExport}
             onExportAndUpload={handleExportAndUpload}
+            prefetchProgress={prefetchProgress}
             timelineCanvasRef={timelineCanvasRef}
             sheetCanvasRef={sheetCanvasRef}
             previewMode={previewMode}

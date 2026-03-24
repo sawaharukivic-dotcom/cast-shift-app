@@ -17,7 +17,7 @@ import {
 const PER_ATTEMPT_TIMEOUT_MS = 8_000;
 
 /** 同時に読み込む画像の最大数（モジュール全体で共有） */
-const MAX_CONCURRENCY = 6;
+const MAX_CONCURRENCY = 12;
 
 // ── モジュールレベルのセマフォ ──
 let semRunning = 0;

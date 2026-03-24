@@ -1,9 +1,9 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { ScheduleCanvas } from "./ScheduleCanvas";
 import { ScheduleSheetCanvas } from "./ScheduleSheetCanvas";
 import { Button } from "./ui/button";
 import { Tabs, TabsList, TabsTrigger } from "./ui/tabs";
-import { Download, Trash2, Upload } from "lucide-react";
+import { Download, Trash2 } from "lucide-react";
 import type { ScheduleRenderInput, AspectRatio } from "../types/renderTypes";
 
 interface PreviewPanelProps {
@@ -15,6 +15,7 @@ interface PreviewPanelProps {
   onClearAllCasts: () => void;
   onWeekBatchExport: () => void;
   onExportAndUpload: () => void;
+  prefetchProgress: { loaded: number; total: number } | null;
   /** 外部からcanvasRefを受け取るためのコールバック */
   timelineCanvasRef: React.RefObject<HTMLCanvasElement | null>;
   sheetCanvasRef: React.RefObject<HTMLCanvasElement | null>;
@@ -34,6 +35,7 @@ export function PreviewPanel({
   onClearAllCasts,
   onWeekBatchExport,
   onExportAndUpload,
+  prefetchProgress,
   timelineCanvasRef,
   sheetCanvasRef,
   previewMode,
@@ -42,6 +44,16 @@ export function PreviewPanel({
   onAspectRatioChange,
 }: PreviewPanelProps) {
   const [missingImages, setMissingImages] = useState<string[]>([]);
+  const [rendering, setRendering] = useState(true);
+
+  // renderInput や表示モードが変わったら描画中に戻す
+  useEffect(() => {
+    setRendering(true);
+  }, [renderInput, previewMode, aspectRatio]);
+
+  const handleRenderComplete = useCallback(() => {
+    setRendering(false);
+  }, []);
 
   return (
     <div className="bg-white rounded-lg shadow p-6 sticky top-8 self-start">
@@ -141,15 +153,38 @@ export function PreviewPanel({
           {missingImages.join("、")}
         </div>
       )}
-      <div className="border rounded overflow-hidden">
+      <div className="border rounded overflow-hidden relative">
+        {rendering && (
+          <div className="absolute inset-0 z-10 flex items-center justify-center bg-white/70">
+            <div className="flex items-center gap-2 rounded-md bg-white px-4 py-2 shadow text-sm text-gray-600">
+              <svg className="size-4 animate-spin" viewBox="0 0 24 24" fill="none">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+              </svg>
+              描画中...
+            </div>
+          </div>
+        )}
+        {!rendering && prefetchProgress && (
+          <div className="absolute top-2 right-2 z-10">
+            <div className="rounded-md bg-blue-50 border border-blue-200 px-3 py-1 text-xs text-blue-700">
+              エクスポート準備中 {prefetchProgress.loaded}/{prefetchProgress.total}
+            </div>
+          </div>
+        )}
         {previewMode === "sheet" ? (
-          <ScheduleSheetCanvas ref={sheetCanvasRef} input={renderInput} />
+          <ScheduleSheetCanvas
+            ref={sheetCanvasRef}
+            input={renderInput}
+            onRenderComplete={handleRenderComplete}
+          />
         ) : (
           <ScheduleCanvas
             ref={timelineCanvasRef}
             input={renderInput}
             aspectRatio={aspectRatio}
             onMissingImages={setMissingImages}
+            onRenderComplete={handleRenderComplete}
           />
         )}
       </div>
@@ -157,10 +192,10 @@ export function PreviewPanel({
         <Button
           onClick={onExportAndUpload}
           className="gap-2"
+          disabled={rendering}
         >
           <Download className="size-4" />
           保存 & Drive送信
-          <Upload className="size-4" />
         </Button>
       </div>
     </div>

@@ -26,3 +26,18 @@ export function setCachedImage(originalUrl: string, img: HTMLImageElement): void
 export function getCachedImage(originalUrl: string): HTMLImageElement | undefined {
   return imageElementCache.get(originalUrl);
 }
+
+/**
+ * 全URLがキャッシュ済みなら即座にMapを返す。1つでも未キャッシュがあればnull。
+ */
+export function getAllCachedImages(
+  urls: Iterable<string>
+): Map<string, HTMLImageElement> | null {
+  const result = new Map<string, HTMLImageElement>();
+  for (const url of urls) {
+    const img = imageElementCache.get(url);
+    if (!img) return null;
+    result.set(url, img);
+  }
+  return result;
+}
