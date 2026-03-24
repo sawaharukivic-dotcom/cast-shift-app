@@ -6,7 +6,7 @@ import { toast } from 'sonner@2.0.3';
 import { ExternalLink } from 'lucide-react';
 import { RankListEditor } from './RankListEditor';
 import { CastListItem } from './CastListItem';
-import { MASTER_SHEET_URL } from '../config';
+import { CAST_LIST_SHEET_URL } from '../config';
 
 // 型定義は src/types/schedule.ts に集約（後方互換のため再エクスポート）
 export type { CastRank, CastMaster, RankLists } from '../types/schedule';
@@ -23,10 +23,7 @@ interface CastMasterManagerProps {
   onRankListsChange: (lists: RankLists) => void;
 }
 
-// CSVエクスポートURLからスプレッドシートの閲覧用URLを生成
-const SHEET_VIEW_URL = MASTER_SHEET_URL
-  ? MASTER_SHEET_URL.replace(/\/export\?.*$/, '')
-  : '';
+const SHEET_VIEW_URL = CAST_LIST_SHEET_URL;
 
 export function CastMasterManager({ castMasters, onCastMastersChange, rankLists, onRankListsChange }: CastMasterManagerProps) {
   const handleRemove = (index: number) => {

@@ -16,7 +16,7 @@ import type { AspectRatio } from "./types/renderTypes";
 import { buildScheduleRenderInput } from "./utils/scheduleAdapter";
 import { normalizeDateString, normalizeDateKey } from "./utils/dateFormatter";
 import {
-  handleExportAndUpload as doExportAndUpload,
+  handleExport as doExport,
   handleWeekBatchExport as doWeekBatchExport,
 } from "./utils/exportService";
 
@@ -79,7 +79,7 @@ export default function App() {
   );
 
   const handleExportAndUpload = () =>
-    doExportAndUpload({
+    doExport({
       displayDate,
       dateKey: selectedDateKey || "",
       timeSlots,

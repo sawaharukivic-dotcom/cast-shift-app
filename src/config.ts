@@ -1,8 +1,11 @@
-// Google Sheets の「ウェブに公開」CSVのURL
+// GAS WebアプリのURL（キャストリスト取得用）
 // 空文字の場合はリモート取得をスキップ（localStorageのみ使用）
-export const MASTER_SHEET_URL =
-  "https://docs.google.com/spreadsheets/d/10G4th4r5bHqi8iSVgOGWTqYP1NfkxmRESecfHm9ZueU/export?format=csv&gid=0";
+export const CAST_LIST_API_URL =
+  "https://script.google.com/macros/s/AKfycbyXZ3Tn1NXQbaLXEeC-S6uMMogdbIQHuyc1b9dNBtun6nFzRKxI4r54ZhBWSvaktRU/exec";
 
-// GAS WebアプリのURL（スプレッドシートへの書き込み用）
-// 空文字の場合はリモート書き込みをスキップ（localStorageのみ使用）
-export const MASTER_SHEET_WRITE_URL = "https://script.google.com/macros/s/AKfycbydLtRQCy89eE7c-BPA7qGcvNswsp0Iaey3C9zjXTB6x8tL3aur1TugaQM58i5mfZO2vQ/exec";
+// キャストリストの参照スプレッドシートURL（UI上のリンク用）
+export const CAST_LIST_SHEET_URL =
+  "https://docs.google.com/spreadsheets/d/10G4th4r5bHqi8iSVgOGWTqYP1NfkxmRESecfHm9ZueU/edit?gid=1636854384#gid=1636854384";
+
+// --- 後方互換: 旧名を維持（段階的に移行） ---
+export const MASTER_SHEET_URL = CAST_LIST_API_URL;

@@ -9,8 +9,6 @@ import { useState, useEffect, useRef } from "react";
 import type { CastMaster } from "../types/schedule";
 import { PLACEHOLDER_IMAGE } from "../constants";
 import { loadCanvasImages } from "../utils/canvasImageLoader";
-import { fetchImagesViaGas } from "../utils/gasFetchImages";
-import { logger } from "../utils/logger";
 
 const TIMEOUT_MS = 30_000;
 
@@ -66,10 +64,6 @@ export function useImagePreloader(
         clearTimeout(timer);
         setImagesReady(true);
       }
-      // バックグラウンドでGAS経由のBase64取得を先行実行（エクスポート高速化）
-      fetchImagesViaGas(unique).catch((err) =>
-        logger.warn("[useImagePreloader] Base64 prefetch failed:", err)
-      );
     });
 
     return () => {

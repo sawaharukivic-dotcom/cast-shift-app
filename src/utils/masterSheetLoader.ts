@@ -1,4 +1,5 @@
 import type { CastMaster, RankLists } from "../types/schedule";
+import { PLACEHOLDER_IMAGE, DEFAULT_COLOR } from "../constants";
 import { logger } from "./logger";
 
 export interface ParsedMasterData {
@@ -6,23 +7,98 @@ export interface ParsedMasterData {
   rankLists: RankLists;
 }
 
+// ── GAS API レスポンス型 ──
+
+interface GasCastEntry {
+  name: string;
+  rank?: string;
+  type?: string;
+  imageFileId?: string;
+}
+
+interface GasApiResponse {
+  casts: GasCastEntry[];
+  rankLists: { gold: string[]; silver: string[]; bronze: string[] };
+  error?: string;
+}
+
 /**
- * Google Sheets から取得したCSV文字列をパースして
- * CastMaster[] と RankLists に変換する。
- *
- * 期待するカラム（順不同）:
- *   name | color | imageUrl | rank
+ * Google Drive の fileId から画像URLを生成（CORS対応の thumbnail URL）
  */
+function driveFileIdToImageUrl(fileId: string): string {
+  return `https://drive.google.com/thumbnail?id=${fileId}&sz=w1000`;
+}
+
+/**
+ * GAS API のレスポンスを ParsedMasterData に変換する。
+ */
+export function parseGasResponse(data: GasApiResponse): ParsedMasterData {
+  if (data.error) {
+    throw new Error(`GAS API エラー: ${data.error}`);
+  }
+
+  const masters: CastMaster[] = (data.casts ?? [])
+    .filter((c) => c.name?.trim())
+    .map((c) => ({
+      name: c.name.trim(),
+      imageUrl: c.imageFileId
+        ? driveFileIdToImageUrl(c.imageFileId)
+        : PLACEHOLDER_IMAGE,
+      color: DEFAULT_COLOR,
+    }));
+
+  const rankLists: RankLists = data.rankLists ?? {
+    gold: [],
+    silver: [],
+    bronze: [],
+  };
+
+  return { masters, rankLists };
+}
+
+/**
+ * GAS WebアプリURL からキャストデータを取得してパースする。
+ */
+export async function fetchMasterSheet(url: string): Promise<ParsedMasterData> {
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error(
+      `キャストリストの取得に失敗: ${response.status} ${response.statusText}`
+    );
+  }
+
+  const contentType = response.headers.get("content-type") ?? "";
+
+  // GAS API（JSON）
+  if (contentType.includes("application/json")) {
+    const data: GasApiResponse = await response.json();
+    return parseGasResponse(data);
+  }
+
+  // フォールバック: 旧CSV形式（移行期間中の互換用）
+  const text = await response.text();
+  try {
+    const data: GasApiResponse = JSON.parse(text);
+    return parseGasResponse(data);
+  } catch {
+    logger.warn("[masterSheetLoader] JSONパース失敗、CSVとして処理");
+    return parseMasterCSV(text);
+  }
+}
+
+// ── 旧CSV パーサー（フォールバック用に残す） ──
+
 export function parseMasterCSV(csv: string): ParsedMasterData {
-  // BOM除去
-  const normalized = csv.replace(/^\uFEFF/, "").replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+  const normalized = csv
+    .replace(/^\uFEFF/, "")
+    .replace(/\r\n/g, "\n")
+    .replace(/\r/g, "\n");
   const lines = normalized.split("\n");
 
   if (lines.length === 0) {
     return { masters: [], rankLists: { gold: [], silver: [], bronze: [] } };
   }
 
-  // ヘッダー行で列インデックスを解決（英語・日本語ヘッダー両対応）
   const headers = lines[0].split(",").map((h) => h.trim().toLowerCase());
 
   const findCol = (...candidates: string[]) =>
@@ -50,8 +126,10 @@ export function parseMasterCSV(csv: string): ParsedMasterData {
     if (!name) continue;
 
     const color = colorIdx !== -1 ? (cols[colorIdx] ?? "").trim() : "";
-    const imageUrl = imageUrlIdx !== -1 ? (cols[imageUrlIdx] ?? "").trim() : "";
-    const rank = rankIdx !== -1 ? (cols[rankIdx] ?? "").trim().toLowerCase() : "";
+    const imageUrl =
+      imageUrlIdx !== -1 ? (cols[imageUrlIdx] ?? "").trim() : "";
+    const rank =
+      rankIdx !== -1 ? (cols[rankIdx] ?? "").trim().toLowerCase() : "";
 
     const master: CastMaster = {
       name,
@@ -68,9 +146,6 @@ export function parseMasterCSV(csv: string): ParsedMasterData {
   return { masters, rankLists };
 }
 
-/**
- * CSVの1行をカラム配列に分割する（ダブルクォートを考慮）。
- */
 function splitCsvLine(line: string): string[] {
   const result: string[] = [];
   let current = "";
@@ -94,16 +169,4 @@ function splitCsvLine(line: string): string[] {
   }
   result.push(current);
   return result;
-}
-
-/**
- * 指定URLのGoogle Sheets CSVを取得してパースする。
- */
-export async function fetchMasterSheet(url: string): Promise<ParsedMasterData> {
-  const response = await fetch(url);
-  if (!response.ok) {
-    throw new Error(`マスターシートの取得に失敗: ${response.status} ${response.statusText}`);
-  }
-  const csv = await response.text();
-  return parseMasterCSV(csv);
 }

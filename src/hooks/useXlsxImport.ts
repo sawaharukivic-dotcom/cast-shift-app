@@ -8,7 +8,6 @@ import { logger } from "../utils/logger";
 import { PLACEHOLDER_IMAGE, DEFAULT_COLOR } from "../constants";
 import { normalizeCastName } from "../utils/castNameNormalizer";
 import { parseXlsxToText } from "../utils/xlsxParser";
-import { appendToMasterSheet } from "../utils/masterSheetWriter";
 
 interface UseXlsxImportDeps {
   setSelectedDateKey: React.Dispatch<React.SetStateAction<DayKey | null>>;
@@ -81,7 +80,6 @@ export function useXlsxImport(deps: UseXlsxImportDeps) {
       });
       if (newMasters.length > 0) {
         setCastMasters((prev) => [...prev, ...newMasters]);
-        appendToMasterSheet(newMasters);
         toast.info(`未登録キャスト ${newMasters.length}人をマスターに追加しました`);
       }
     }
