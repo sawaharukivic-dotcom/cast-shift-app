@@ -23,7 +23,7 @@ export const ScheduleCanvas = forwardRef<HTMLCanvasElement, ScheduleCanvasProps>
 
     const canvasWidth = useMemo(() => getCanvasWidth(aspectRatio), [aspectRatio]);
     const canvasHeight = useMemo(
-      () => calculateCanvasHeight(input.timeSlots, aspectRatio, new Map()),
+      () => calculateCanvasHeight(input.timeSlots, aspectRatio),
       [input.timeSlots, aspectRatio]
     );
 

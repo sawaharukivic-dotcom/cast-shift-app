@@ -20,21 +20,6 @@ import { parseBulkTextToSlots } from "../utils/bulkTextParser";
 import { toast } from "sonner@2.0.3";
 import { logger } from "../utils/logger";
 
-// re-export for backward compatibility
-export { createDefaultSlots } from "../utils/scheduleDefaults";
-
-const normalizeCasts = (casts: Cast[] | undefined): Cast[] => {
-  if (!casts || !Array.isArray(casts)) return [];
-  return casts.map((cast) => ({
-    id: cast.id || `${Date.now()}_${Math.random()}`,
-    name: cast.name || "",
-    imageUrl:
-      cast.imageUrl?.trim() && cast.imageUrl.trim().length > 0
-        ? cast.imageUrl.trim()
-        : PLACEHOLDER_IMAGE,
-  }));
-};
-
 export function useScheduleState(
   castMasters: CastMaster[],
   rankLists: RankLists,
@@ -66,6 +51,17 @@ export function useScheduleState(
   const timeSlots = selectedDateKey
     ? scheduleByDate[selectedDateKey] || createDefaultSlots()
     : createDefaultSlots();
+
+  /** scheduleByDate を更新して localStorage に保存する共通ヘルパー */
+  const updateSchedule = (
+    updater: (prev: { [dateKey: string]: TimeSlot[] }) => { [dateKey: string]: TimeSlot[] }
+  ) => {
+    setScheduleByDate((prev) => {
+      const updated = updater(prev);
+      safeSetItem(MULTI_SCHEDULE_KEY, JSON.stringify(updated));
+      return updated;
+    });
+  };
 
   // castMasters変更時のスケジュール同期
   useEffect(() => {
@@ -142,11 +138,7 @@ export function useScheduleState(
       return new Set();
     }
 
-    setScheduleByDate((prev) => {
-      const updated = { ...prev, [dateKey]: result.slots };
-      safeSetItem(MULTI_SCHEDULE_KEY, JSON.stringify(updated));
-      return updated;
-    });
+    updateSchedule((prev) => ({ ...prev, [dateKey]: result.slots }));
 
     if (result.invalidTimes.size > 0) {
       logger.warn("[applyBulkText] 未対応の時間:", Array.from(result.invalidTimes));
@@ -163,11 +155,7 @@ export function useScheduleState(
     const newSlots = timeSlots.map((slot, i) =>
       i === timeIndex ? { ...slot, casts } : slot
     );
-    setScheduleByDate((prev) => {
-      const updated = { ...prev, [selectedDateKey]: newSlots };
-      safeSetItem(MULTI_SCHEDULE_KEY, JSON.stringify(updated));
-      return updated;
-    });
+    updateSchedule((prev) => ({ ...prev, [selectedDateKey]: newSlots }));
   };
 
   const handleRemoveCast = (timeIndex: number, castId: string) => {
@@ -177,29 +165,20 @@ export function useScheduleState(
         ? { ...slot, casts: slot.casts.filter((c) => c.id !== castId) }
         : slot
     );
-    setScheduleByDate((prev) => {
-      const updated = { ...prev, [selectedDateKey]: newSlots };
-      safeSetItem(MULTI_SCHEDULE_KEY, JSON.stringify(updated));
-      return updated;
-    });
+    updateSchedule((prev) => ({ ...prev, [selectedDateKey]: newSlots }));
   };
 
   const handleClearAllCasts = () => {
     if (!selectedDateKey) return;
     const newSlots = timeSlots.map((slot) => ({ ...slot, casts: [] }));
-    setScheduleByDate((prev) => {
-      const updated = { ...prev, [selectedDateKey]: newSlots };
-      safeSetItem(MULTI_SCHEDULE_KEY, JSON.stringify(updated));
-      return updated;
-    });
+    updateSchedule((prev) => ({ ...prev, [selectedDateKey]: newSlots }));
     toast.success("すべてのスケジュールを削除しました");
   };
 
   const handleDeleteDate = (dateKey: DayKey) => {
-    setScheduleByDate((prev) => {
+    updateSchedule((prev) => {
       const updated = { ...prev };
       delete updated[dateKey];
-      safeSetItem(MULTI_SCHEDULE_KEY, JSON.stringify(updated));
       return updated;
     });
     if (selectedDateKey === dateKey) {

@@ -117,49 +117,21 @@ export function normalizeDateKey(date: Date | string): string {
  */
 export function extractDateFromFilename(filename: string): Date | null {
   const currentYear = new Date().getFullYear();
+  const patterns: { regex: RegExp; hasYear: boolean }[] = [
+    { regex: /^(\d{4})[-](\d{1,2})[-](\d{1,2})/, hasYear: true },
+    { regex: /^(\d{4})_(\d{1,2})_(\d{1,2})/, hasYear: true },
+    { regex: /^(\d{1,2})[-](\d{1,2})/, hasYear: false },
+    { regex: /^(\d{1,2})_(\d{1,2})/, hasYear: false },
+  ];
 
-  // "2026-02-09.xlsx" 形式（YYYY-MM-DD）
-  const ymdDashMatch = filename.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
-  if (ymdDashMatch) {
-    const year = parseInt(ymdDashMatch[1], 10);
-    const month = parseInt(ymdDashMatch[2], 10) - 1;
-    const day = parseInt(ymdDashMatch[3], 10);
+  for (const { regex, hasYear } of patterns) {
+    const match = filename.match(regex);
+    if (!match) continue;
+    const year = hasYear ? parseInt(match[1], 10) : currentYear;
+    const month = parseInt(match[hasYear ? 2 : 1], 10) - 1;
+    const day = parseInt(match[hasYear ? 3 : 2], 10);
     const date = new Date(year, month, day);
     if (date.getFullYear() === year && date.getMonth() === month && date.getDate() === day) {
-      return date;
-    }
-  }
-
-  // "2026_2_9.xlsx" 形式（YYYY_M_D）
-  const ymdUnderscoreMatch = filename.match(/^(\d{4})_(\d{1,2})_(\d{1,2})/);
-  if (ymdUnderscoreMatch) {
-    const year = parseInt(ymdUnderscoreMatch[1], 10);
-    const month = parseInt(ymdUnderscoreMatch[2], 10) - 1;
-    const day = parseInt(ymdUnderscoreMatch[3], 10);
-    const date = new Date(year, month, day);
-    if (date.getFullYear() === year && date.getMonth() === month && date.getDate() === day) {
-      return date;
-    }
-  }
-
-  // "2-9.xlsx" 形式（M-D）
-  const mdDashMatch = filename.match(/^(\d{1,2})-(\d{1,2})/);
-  if (mdDashMatch) {
-    const month = parseInt(mdDashMatch[1], 10) - 1;
-    const day = parseInt(mdDashMatch[2], 10);
-    const date = new Date(currentYear, month, day);
-    if (date.getMonth() === month && date.getDate() === day) {
-      return date;
-    }
-  }
-
-  // "2_9.xlsx" 形式（M_D）
-  const mdUnderscoreMatch = filename.match(/^(\d{1,2})_(\d{1,2})/);
-  if (mdUnderscoreMatch) {
-    const month = parseInt(mdUnderscoreMatch[1], 10) - 1;
-    const day = parseInt(mdUnderscoreMatch[2], 10);
-    const date = new Date(currentYear, month, day);
-    if (date.getMonth() === month && date.getDate() === day) {
       return date;
     }
   }

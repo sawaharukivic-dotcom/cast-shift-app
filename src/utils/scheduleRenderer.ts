@@ -13,27 +13,15 @@ import {
   type Layout,
 } from "./rendererConstants";
 
-// re-export for backward compat
-export type { AspectRatio };
-
-function getRankFromCast(cast: RenderCast): CastRank {
-  return cast.rank;
-}
 
 /** キャストの重複を排除し、画像URLが未設定のものを除外 */
-function deduplicateCasts(
-  casts: RenderCast[],
-  _imageMap: Map<string, HTMLImageElement>,
-  _skipImageCheck = false
-): RenderCast[] {
+function deduplicateCasts(casts: RenderCast[]): RenderCast[] {
   const seen = new Set<string>();
   const result: RenderCast[] = [];
   for (const cast of casts) {
     if (!cast.name?.trim()) continue;
     const key = cast.id || normalizeCastName(cast.name);
     if (!key || seen.has(key)) continue;
-    // imageUrl が未設定またはプレースホルダーのみ除外
-    // 画像の読み込み成否は問わない（失敗時はグレー矩形で表示）
     if (!cast.imageUrl || cast.imageUrl.trim().length === 0 ||
         cast.imageUrl === PLACEHOLDER_IMAGE) continue;
     seen.add(key);
@@ -42,27 +30,29 @@ function deduplicateCasts(
   return result;
 }
 
+/** ランク別にキャストを分類 */
+function groupByRank(casts: RenderCast[]): Record<CastRank, RenderCast[]> {
+  const result: Record<CastRank, RenderCast[]> = {
+    normal: [], bronze: [], silver: [], gold: [],
+  };
+  casts.forEach((cast) => { result[cast.rank].push(cast); });
+  return result;
+}
+
+/** キャストカード配置領域の横幅を計算 */
+function getAvailableWidth(layout: Layout): number {
+  const startX = layout.TIME_LABEL_WIDTH + layout.BLOCK_PADDING_X;
+  return layout.CANVAS_WIDTH - startX - layout.BLOCK_PADDING_X - layout.TIME_LABEL_WIDTH;
+}
+
 /** 各時間帯の描画高さを計算（内容に応じて動的） */
 function calculateTimeSlotHeight(
   slot: RenderTimeSlot,
   layout: Layout,
-  imageMap: Map<string, HTMLImageElement>,
-  skipImageCheck = false
 ): number {
-  const uniqueCasts = deduplicateCasts(slot.casts, imageMap, skipImageCheck);
-  const castsByRank: Record<CastRank, RenderCast[]> = {
-    normal: [],
-    bronze: [],
-    silver: [],
-    gold: [],
-  };
-  uniqueCasts.forEach((cast) => {
-    castsByRank[getRankFromCast(cast)].push(cast);
-  });
-
-  const startX = layout.TIME_LABEL_WIDTH + layout.BLOCK_PADDING_X;
-  const availableWidth =
-    layout.CANVAS_WIDTH - startX - layout.BLOCK_PADDING_X - layout.TIME_LABEL_WIDTH;
+  const uniqueCasts = deduplicateCasts(slot.casts);
+  const castsByRank = groupByRank(uniqueCasts);
+  const availableWidth = getAvailableWidth(layout);
 
   let maxNeededHeight = layout.TIME_CELL_HEIGHT;
   RANK_ORDER.forEach((rank) => {
@@ -88,16 +78,13 @@ function calculateTimeSlotHeight(
 export function calculateCanvasHeight(
   timeSlots: RenderTimeSlot[],
   aspectRatio: AspectRatio = "16:9",
-  imageMap: Map<string, HTMLImageElement> = new Map()
 ): number {
   const layout = getLayout(aspectRatio);
   const headerTotalHeight =
     layout.HEADER_BAND_HEIGHT + layout.RANK_HEADER_HEIGHT;
   let totalHeight = headerTotalHeight;
-  // imageMap が空の場合は imageUrl の存在だけで高さを計算する（事前サイズ計算用）
-  const skipImageCheck = imageMap.size === 0;
   timeSlots.forEach((slot) => {
-    totalHeight += calculateTimeSlotHeight(slot, layout, imageMap, skipImageCheck);
+    totalHeight += calculateTimeSlotHeight(slot, layout);
   });
   return totalHeight;
 }
@@ -123,7 +110,7 @@ export function renderSchedule(
   const { date, timeSlots, logoImage } = input;
   const layout = getLayout(aspectRatio);
 
-  const canvasHeight = calculateCanvasHeight(timeSlots, aspectRatio, imageMap);
+  const canvasHeight = calculateCanvasHeight(timeSlots, aspectRatio);
   if (ctx.canvas.width !== layout.CANVAS_WIDTH) ctx.canvas.width = layout.CANVAS_WIDTH;
   if (ctx.canvas.height !== canvasHeight) ctx.canvas.height = canvasHeight;
 
@@ -136,7 +123,7 @@ export function renderSchedule(
   let currentY = headerTotalHeight;
 
   timeSlots.forEach((slot, index) => {
-    const cellHeight = calculateTimeSlotHeight(slot, layout, imageMap);
+    const cellHeight = calculateTimeSlotHeight(slot, layout);
     ctx.fillStyle = index % 2 === 0 ? "#fafafa" : "#ffffff";
     ctx.fillRect(0, currentY, layout.CANVAS_WIDTH, cellHeight);
     drawTimeBlock(ctx, slot, currentY, cellHeight, imageMap, layout, index);
@@ -221,8 +208,7 @@ function drawHeader(
   // ランク見出し
   const rankHeaderY = layout.HEADER_BAND_HEIGHT;
   const rankStartX = layout.TIME_LABEL_WIDTH + layout.BLOCK_PADDING_X;
-  const availableWidth =
-    layout.CANVAS_WIDTH - rankStartX - layout.BLOCK_PADDING_X - layout.TIME_LABEL_WIDTH;
+  const availableWidth = getAvailableWidth(layout);
   const normalEndX = rankStartX + availableWidth * RANK_WIDTH_RATIOS.normal;
 
   ctx.fillStyle = "#f8fafc";
@@ -273,14 +259,8 @@ function calculateMaxRowsForTimeSlot(
   casts: RenderCast[],
   layout: Layout
 ): { maxRows: number; normalRows: number } {
-  const castsByRank: Record<CastRank, RenderCast[]> = {
-    normal: [], bronze: [], silver: [], gold: [],
-  };
-  casts.forEach((cast) => { castsByRank[getRankFromCast(cast)].push(cast); });
-
-  const startX = layout.TIME_LABEL_WIDTH + layout.BLOCK_PADDING_X;
-  const availableWidth =
-    layout.CANVAS_WIDTH - startX - layout.BLOCK_PADDING_X - layout.TIME_LABEL_WIDTH;
+  const castsByRank = groupByRank(casts);
+  const availableWidth = getAvailableWidth(layout);
 
   let maxRows = 1;
   let normalRows = 0;
@@ -351,7 +331,7 @@ function drawTimeBlock(
   // キャストカード
   const cardsX = layout.TIME_LABEL_WIDTH + layout.BLOCK_PADDING_X;
   const cardsY = y + layout.BLOCK_PADDING_Y;
-  const uniqueCasts = deduplicateCasts(slot.casts, imageMap);
+  const uniqueCasts = deduplicateCasts(slot.casts);
   const { maxRows, normalRows } = calculateMaxRowsForTimeSlot(uniqueCasts, layout);
   const cellHeight = maxRows * layout.ROW_HEIGHT;
 
@@ -371,13 +351,8 @@ function drawCastCards(
   cellHeight: number,
   slotTop: number
 ) {
-  const castsByRank: Record<CastRank, RenderCast[]> = {
-    normal: [], bronze: [], silver: [], gold: [],
-  };
-  casts.forEach((cast) => { castsByRank[getRankFromCast(cast)].push(cast); });
-
-  const availableWidth =
-    layout.CANVAS_WIDTH - startX - layout.BLOCK_PADDING_X - layout.TIME_LABEL_WIDTH;
+  const castsByRank = groupByRank(casts);
+  const availableWidth = getAvailableWidth(layout);
 
   let currentSectionX = startX;
   RANK_ORDER.forEach((rank) => {
@@ -448,7 +423,7 @@ function drawCastCards(
         }
         ctx.restore();
 
-        ctx.strokeStyle = RANK_COLORS[getRankFromCast(cast)] + "60";
+        ctx.strokeStyle = RANK_COLORS[cast.rank] + "60";
         ctx.lineWidth = 6;
         roundRect(ctx, cardX, cardY, layout.CARD_SIZE, layout.CARD_SIZE, layout.CARD_RADIUS);
         ctx.stroke();

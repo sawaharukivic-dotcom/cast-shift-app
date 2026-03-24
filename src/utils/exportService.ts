@@ -76,7 +76,6 @@ export async function handleExport(ctx: ExportContext) {
     // fall through to safe export
   }
 
-  const safeCanvas = document.createElement("canvas");
   const safeInput = buildScheduleRenderInput(
     ctx.displayDate,
     ctx.timeSlots,
@@ -84,29 +83,10 @@ export async function handleExport(ctx: ExportContext) {
     ctx.castMasters,
     ctx.logoImgRef.current
   );
-  if (ctx.previewMode === "sheet") {
-    const rows = buildSheetRows(safeInput.timeSlots);
-    const calculatedHeight =
-      SHEET_TITLE_HEIGHT +
-      SHEET_HEADER_HEIGHT +
-      rows.length * SHEET_ROW_HEIGHT +
-      SHEET_BOTTOM_PADDING;
-    safeCanvas.width = SHEET_CANVAS_WIDTH;
-    safeCanvas.height = Math.max(SHEET_MIN_HEIGHT, calculatedHeight);
-  } else {
-    safeCanvas.width = getCanvasWidth(ctx.aspectRatio);
-    safeCanvas.height = calculateCanvasHeight(safeInput.timeSlots, ctx.aspectRatio);
-  }
-  const safeCtx = safeCanvas.getContext("2d");
-  if (!safeCtx) {
+  const safeCanvas = renderToOffscreenCanvas(safeInput, ctx.previewMode, ctx.aspectRatio, new Map());
+  if (!safeCanvas) {
     toast.error("PNG書き出しに失敗しました");
     return;
-  }
-
-  if (ctx.previewMode === "sheet") {
-    renderScheduleSheet(safeCtx, safeInput, new Map());
-  } else {
-    renderSchedule(safeCtx, safeInput, new Map(), ctx.aspectRatio);
   }
   const safeBlob = await canvasToBlob(safeCanvas);
 
@@ -201,6 +181,38 @@ export async function handleExportAndUpload(ctx: ExportContext) {
   }
 }
 
+/** オフスクリーン canvas を生成し、スケジュールを描画して返す */
+function renderToOffscreenCanvas(
+  input: import("../types/renderTypes").ScheduleRenderInput,
+  mode: "timeline" | "sheet",
+  aspectRatio: AspectRatio,
+  imageMap: Map<string, HTMLImageElement>,
+): HTMLCanvasElement | null {
+  const canvas = document.createElement("canvas");
+  if (mode === "sheet") {
+    const rows = buildSheetRows(input.timeSlots);
+    const calculatedHeight =
+      SHEET_TITLE_HEIGHT +
+      SHEET_HEADER_HEIGHT +
+      rows.length * SHEET_ROW_HEIGHT +
+      SHEET_BOTTOM_PADDING;
+    canvas.width = SHEET_CANVAS_WIDTH;
+    canvas.height = Math.max(SHEET_MIN_HEIGHT, calculatedHeight);
+  } else {
+    canvas.width = getCanvasWidth(aspectRatio);
+    canvas.height = calculateCanvasHeight(input.timeSlots, aspectRatio);
+  }
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return null;
+
+  if (mode === "sheet") {
+    renderScheduleSheet(ctx, input, imageMap);
+  } else {
+    renderSchedule(ctx, input, imageMap, aspectRatio);
+  }
+  return canvas;
+}
+
 /** tainted canvas 時にGAS経由でBase64画像を取得し、クリーンな canvas から Blob を生成する */
 async function _buildSafeBlob(ctx: ExportContext): Promise<Blob | null> {
   const safeInput = buildScheduleRenderInput(
@@ -243,28 +255,8 @@ async function _buildSafeBlob(ctx: ExportContext): Promise<Blob | null> {
     })
   );
 
-  const safeCanvas = document.createElement("canvas");
-  if (ctx.previewMode === "sheet") {
-    const rows = buildSheetRows(safeInput.timeSlots);
-    const calculatedHeight =
-      SHEET_TITLE_HEIGHT +
-      SHEET_HEADER_HEIGHT +
-      rows.length * SHEET_ROW_HEIGHT +
-      SHEET_BOTTOM_PADDING;
-    safeCanvas.width = SHEET_CANVAS_WIDTH;
-    safeCanvas.height = Math.max(SHEET_MIN_HEIGHT, calculatedHeight);
-  } else {
-    safeCanvas.width = getCanvasWidth(ctx.aspectRatio);
-    safeCanvas.height = calculateCanvasHeight(safeInput.timeSlots, ctx.aspectRatio, imageMap);
-  }
-  const safeCtx = safeCanvas.getContext("2d");
-  if (!safeCtx) return null;
-
-  if (ctx.previewMode === "sheet") {
-    renderScheduleSheet(safeCtx, safeInput, imageMap);
-  } else {
-    renderSchedule(safeCtx, safeInput, imageMap, ctx.aspectRatio);
-  }
+  const safeCanvas = renderToOffscreenCanvas(safeInput, ctx.previewMode, ctx.aspectRatio, imageMap);
+  if (!safeCanvas) return null;
 
   return canvasToBlob(safeCanvas);
 }
@@ -325,7 +317,7 @@ export async function handleWeekBatchExport(ctx: WeekBatchExportContext) {
         await new Promise((resolve) => requestAnimationFrame(resolve));
         const canvas = document.createElement("canvas");
         canvas.width = getCanvasWidth(ar);
-        canvas.height = calculateCanvasHeight(weekInput.timeSlots, ar, imageMap);
+        canvas.height = calculateCanvasHeight(weekInput.timeSlots, ar);
         const canvasCtx = canvas.getContext("2d");
         if (!canvasCtx) continue;
 

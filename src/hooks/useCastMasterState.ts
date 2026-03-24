@@ -11,7 +11,7 @@ import {
   PLACEHOLDER_IMAGE,
   DEFAULT_COLOR,
 } from "../constants";
-import { MASTER_SHEET_URL } from "../config";
+import { CAST_LIST_API_URL } from "../config";
 import { fetchMasterSheet } from "../utils/masterSheetLoader";
 import { normalizeCastName } from "../utils/castNameNormalizer";
 
@@ -26,7 +26,7 @@ export function useCastMasterState(
     return { gold: [], silver: [], bronze: [] };
   });
 
-  const [masterFetchDone, setMasterFetchDone] = useState(!MASTER_SHEET_URL);
+  const [masterFetchDone, setMasterFetchDone] = useState(!CAST_LIST_API_URL);
 
   const [castMasters, setCastMasters] = useState<CastMaster[]>(() => {
     const saved = localStorage.getItem(STORAGE_KEY);
@@ -61,8 +61,8 @@ export function useCastMasterState(
 
   // 起動時マスターシート取得
   useEffect(() => {
-    if (!MASTER_SHEET_URL) return;
-    fetchMasterSheet(MASTER_SHEET_URL)
+    if (!CAST_LIST_API_URL) return;
+    fetchMasterSheet(CAST_LIST_API_URL)
       .then(({ masters: remoteMasters, rankLists: newRankLists }) => {
         setCastMasters((prev) => {
           const existingImageMap = new Map<string, string>();
