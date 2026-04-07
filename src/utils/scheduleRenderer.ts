@@ -14,6 +14,33 @@ import {
 } from "./rendererConstants";
 
 
+/** 全時間帯を走査し、1人以上いるランクだけを返す + 幅比率を再配分 */
+function computeActiveRanks(
+  timeSlots: RenderTimeSlot[]
+): { activeRanks: CastRank[]; activeRatios: Record<CastRank, number> } {
+  const rankHasCast = new Set<CastRank>();
+  // normal は常にアクティブ
+  rankHasCast.add("normal");
+  for (const slot of timeSlots) {
+    const casts = deduplicateCasts(slot.casts);
+    for (const cast of casts) {
+      rankHasCast.add(cast.rank);
+    }
+  }
+  const activeRanks = RANK_ORDER.filter((r) => rankHasCast.has(r));
+  // 非アクティブなランクの幅を按分して再配分
+  const totalActiveBase = activeRanks.reduce((sum, r) => sum + RANK_WIDTH_RATIOS[r], 0);
+  const activeRatios = { ...RANK_WIDTH_RATIOS };
+  for (const rank of RANK_ORDER) {
+    if (rankHasCast.has(rank)) {
+      activeRatios[rank] = RANK_WIDTH_RATIOS[rank] / totalActiveBase;
+    } else {
+      activeRatios[rank] = 0;
+    }
+  }
+  return { activeRanks, activeRatios };
+}
+
 /** キャストの重複を排除し、画像URLが未設定のものを除外 */
 function deduplicateCasts(casts: RenderCast[]): RenderCast[] {
   const seen = new Set<string>();
@@ -49,6 +76,7 @@ function getAvailableWidth(layout: Layout): number {
 function calculateTimeSlotHeight(
   slot: RenderTimeSlot,
   layout: Layout,
+  activeRatios: Record<CastRank, number> = RANK_WIDTH_RATIOS,
 ): number {
   const uniqueCasts = deduplicateCasts(slot.casts);
   const castsByRank = groupByRank(uniqueCasts);
@@ -56,8 +84,9 @@ function calculateTimeSlotHeight(
 
   let maxNeededHeight = layout.TIME_CELL_HEIGHT;
   RANK_ORDER.forEach((rank) => {
+    if (activeRatios[rank] === 0) return;
     const rankedCasts = castsByRank[rank];
-    const rankWidth = availableWidth * RANK_WIDTH_RATIOS[rank];
+    const rankWidth = availableWidth * activeRatios[rank];
     const cardsPerRow = Math.min(
       4,
       Math.floor(rankWidth / (layout.CARD_SIZE + layout.CARD_GAP_X))
@@ -80,11 +109,12 @@ export function calculateCanvasHeight(
   aspectRatio: AspectRatio = "16:9",
 ): number {
   const layout = getLayout(aspectRatio);
+  const { activeRatios } = computeActiveRanks(timeSlots);
   const headerTotalHeight =
     layout.HEADER_BAND_HEIGHT + layout.RANK_HEADER_HEIGHT;
   let totalHeight = headerTotalHeight;
   timeSlots.forEach((slot) => {
-    totalHeight += calculateTimeSlotHeight(slot, layout);
+    totalHeight += calculateTimeSlotHeight(slot, layout, activeRatios);
   });
   return totalHeight;
 }
@@ -109,6 +139,7 @@ export function renderSchedule(
 ) {
   const { date, timeSlots, logoImage } = input;
   const layout = getLayout(aspectRatio);
+  const { activeRanks, activeRatios } = computeActiveRanks(timeSlots);
 
   const canvasHeight = calculateCanvasHeight(timeSlots, aspectRatio);
   if (ctx.canvas.width !== layout.CANVAS_WIDTH) ctx.canvas.width = layout.CANVAS_WIDTH;
@@ -117,16 +148,16 @@ export function renderSchedule(
   ctx.fillStyle = "#ffffff";
   ctx.fillRect(0, 0, layout.CANVAS_WIDTH, canvasHeight);
 
-  drawHeader(ctx, date, layout);
+  drawHeader(ctx, date, layout, activeRanks, activeRatios);
 
   const headerTotalHeight = layout.HEADER_BAND_HEIGHT + layout.RANK_HEADER_HEIGHT;
   let currentY = headerTotalHeight;
 
   timeSlots.forEach((slot, index) => {
-    const cellHeight = calculateTimeSlotHeight(slot, layout);
+    const cellHeight = calculateTimeSlotHeight(slot, layout, activeRatios);
     ctx.fillStyle = index % 2 === 0 ? "#fafafa" : "#ffffff";
     ctx.fillRect(0, currentY, layout.CANVAS_WIDTH, cellHeight);
-    drawTimeBlock(ctx, slot, currentY, cellHeight, imageMap, layout, index);
+    drawTimeBlock(ctx, slot, currentY, cellHeight, imageMap, layout, index, activeRanks, activeRatios);
     currentY += cellHeight;
   });
 
@@ -152,7 +183,9 @@ export function renderSchedule(
 function drawHeader(
   ctx: CanvasRenderingContext2D,
   date: string,
-  layout: Layout
+  layout: Layout,
+  activeRanks: CastRank[] = RANK_ORDER,
+  activeRatios: Record<CastRank, number> = RANK_WIDTH_RATIOS,
 ) {
   // ヘッダー帯背景
   ctx.fillStyle = "#fafafa";
@@ -209,7 +242,7 @@ function drawHeader(
   const rankHeaderY = layout.HEADER_BAND_HEIGHT;
   const rankStartX = layout.TIME_LABEL_WIDTH + layout.BLOCK_PADDING_X;
   const availableWidth = getAvailableWidth(layout);
-  const normalEndX = rankStartX + availableWidth * RANK_WIDTH_RATIOS.normal;
+  const normalEndX = rankStartX + availableWidth * activeRatios.normal;
 
   ctx.fillStyle = "#f8fafc";
   ctx.fillRect(0, rankHeaderY, layout.CANVAS_WIDTH, layout.RANK_HEADER_HEIGHT);
@@ -217,8 +250,8 @@ function drawHeader(
   const headerFontSize = layout.RANK_HEADER_HEIGHT >= 184 ? 96 : 88;
   let currentX = rankStartX;
 
-  RANK_ORDER.forEach((rank) => {
-    const rankWidth = availableWidth * RANK_WIDTH_RATIOS[rank];
+  activeRanks.forEach((rank) => {
+    const rankWidth = availableWidth * activeRatios[rank];
     const headerWidth = rankWidth - layout.CARD_GAP_X;
     if (rank !== "normal") {
       ctx.fillStyle = RANK_BG_COLORS[rank];
@@ -257,16 +290,18 @@ function drawHeader(
 
 function calculateMaxRowsForTimeSlot(
   casts: RenderCast[],
-  layout: Layout
+  layout: Layout,
+  activeRanks: CastRank[] = RANK_ORDER,
+  activeRatios: Record<CastRank, number> = RANK_WIDTH_RATIOS,
 ): { maxRows: number; normalRows: number } {
   const castsByRank = groupByRank(casts);
   const availableWidth = getAvailableWidth(layout);
 
   let maxRows = 1;
   let normalRows = 0;
-  RANK_ORDER.forEach((rank) => {
+  activeRanks.forEach((rank) => {
     const rankedCasts = castsByRank[rank];
-    const rankWidth = availableWidth * RANK_WIDTH_RATIOS[rank];
+    const rankWidth = availableWidth * activeRatios[rank];
     const cardsPerRow = Math.min(
       4,
       Math.floor(rankWidth / (layout.CARD_SIZE + layout.CARD_GAP_X))
@@ -287,7 +322,9 @@ function drawTimeBlock(
   blockHeight: number,
   imageMap: Map<string, HTMLImageElement>,
   layout: Layout,
-  index: number
+  index: number,
+  activeRanks: CastRank[] = RANK_ORDER,
+  activeRatios: Record<CastRank, number> = RANK_WIDTH_RATIOS,
 ) {
   // 左カラム
   ctx.fillStyle = "#f8f9fa";
@@ -332,10 +369,10 @@ function drawTimeBlock(
   const cardsX = layout.TIME_LABEL_WIDTH + layout.BLOCK_PADDING_X;
   const cardsY = y + layout.BLOCK_PADDING_Y;
   const uniqueCasts = deduplicateCasts(slot.casts);
-  const { maxRows, normalRows } = calculateMaxRowsForTimeSlot(uniqueCasts, layout);
+  const { maxRows, normalRows } = calculateMaxRowsForTimeSlot(uniqueCasts, layout, activeRanks, activeRatios);
   const cellHeight = maxRows * layout.ROW_HEIGHT;
 
-  drawCastCards(ctx, uniqueCasts, cardsX, cardsY, imageMap, layout, blockHeight, maxRows, normalRows, cellHeight, y);
+  drawCastCards(ctx, uniqueCasts, cardsX, cardsY, imageMap, layout, blockHeight, maxRows, normalRows, cellHeight, y, activeRanks, activeRatios);
 }
 
 function drawCastCards(
@@ -349,15 +386,17 @@ function drawCastCards(
   maxRows: number,
   normalRows: number,
   cellHeight: number,
-  slotTop: number
+  slotTop: number,
+  activeRanks: CastRank[] = RANK_ORDER,
+  activeRatios: Record<CastRank, number> = RANK_WIDTH_RATIOS,
 ) {
   const castsByRank = groupByRank(casts);
   const availableWidth = getAvailableWidth(layout);
 
   let currentSectionX = startX;
-  RANK_ORDER.forEach((rank) => {
+  activeRanks.forEach((rank) => {
     const rankedCasts = castsByRank[rank];
-    const rankWidth = availableWidth * RANK_WIDTH_RATIOS[rank];
+    const rankWidth = availableWidth * activeRatios[rank];
 
     ctx.fillStyle = RANK_BG_COLORS[rank] + "30";
     ctx.fillRect(
