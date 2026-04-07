@@ -243,6 +243,7 @@ export function useScheduleState(
     displayDate,
     scheduleByDate,
     setScheduleByDate,
+    updateSchedule,
     timeSlots,
     createDefaultSlots,
     applyBulkText,

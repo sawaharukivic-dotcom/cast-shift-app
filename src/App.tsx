@@ -46,6 +46,7 @@ export default function App() {
     scheduleByDate,
     timeSlots,
     applyBulkText,
+    updateSchedule,
     handleSetCasts,
     handleRemoveCast,
     handleClearAllCasts,
@@ -56,9 +57,10 @@ export default function App() {
 
   const { handleXlsxImport } = useXlsxImport({
     setSelectedDateKey,
-    applyBulkText,
     castMasters,
     setCastMasters,
+    rankLists,
+    updateSchedule,
   });
 
   const [previewMode, setPreviewMode] = useState<"timeline" | "sheet">("timeline");

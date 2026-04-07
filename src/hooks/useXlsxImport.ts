@@ -3,21 +3,23 @@
  */
 
 import { toast } from "sonner@2.0.3";
-import type { DayKey, CastMaster } from "../types/schedule";
+import type { DayKey, CastMaster, RankLists, TimeSlot } from "../types/schedule";
 import { logger } from "../utils/logger";
 import { PLACEHOLDER_IMAGE, DEFAULT_COLOR } from "../constants";
 import { normalizeCastName } from "../utils/castNameNormalizer";
 import { parseXlsxToText } from "../utils/xlsxParser";
+import { buildSlotsFromHourNames } from "../utils/bulkTextParser";
 
 interface UseXlsxImportDeps {
   setSelectedDateKey: React.Dispatch<React.SetStateAction<DayKey | null>>;
-  applyBulkText: (text: string, dateKey: DayKey, options?: { overwrite?: boolean }) => Set<string>;
   castMasters: CastMaster[];
   setCastMasters: React.Dispatch<React.SetStateAction<CastMaster[]>>;
+  rankLists: RankLists;
+  updateSchedule: (updater: (prev: Record<DayKey, TimeSlot[]>) => Record<DayKey, TimeSlot[]>) => void;
 }
 
 export function useXlsxImport(deps: UseXlsxImportDeps) {
-  const { setSelectedDateKey, applyBulkText, castMasters, setCastMasters } = deps;
+  const { setSelectedDateKey, castMasters, setCastMasters, rankLists, updateSchedule } = deps;
 
   const handleXlsxImport = async (
     files: FileList | null,
@@ -48,8 +50,12 @@ export function useXlsxImport(deps: UseXlsxImportDeps) {
       try {
         const parsed = await parseXlsxToText(file);
 
-        const unknownNames = applyBulkText(parsed.text, parsed.dateKey, { overwrite: true });
-        unknownNames.forEach((name) => allUnknownNames.add(name));
+        // 構造化データ（hourNames）から直接TimeSlot[]を構築
+        // テキスト変換を経由しないため、スペースを含む名前も正確に処理できる
+        const result = buildSlotsFromHourNames(parsed.hourNames, castMasters, rankLists);
+
+        updateSchedule((prev) => ({ ...prev, [parsed.dateKey]: result.slots }));
+        result.unknownNames.forEach((name) => allUnknownNames.add(name));
 
         lastDateKey = parsed.dateKey;
         results.push({ success: true, date: parsed.date });

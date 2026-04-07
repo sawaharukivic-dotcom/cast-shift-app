@@ -14,6 +14,7 @@ export interface ParsedScheduleText {
   dateObj: Date;
   text: string; // 既存の一括入力形式（例: "【11:00】名前1 名前2 【12:00】名前3"）
   hourSlots: { [hour: number]: number }; // 時間帯ごとの人数（11-25）
+  hourNames: { [hour: number]: string[] }; // 時間帯ごとのキャスト名（行単位、スペース含む名前を正確に保持）
 }
 
 /** セル値から時間（hour）を抽出。文字列 "11:00" やExcel時刻値に対応 */
@@ -275,10 +276,12 @@ export async function parseXlsxToText(file: File): Promise<ParsedScheduleText> {
           }
         }
 
-        // 7) テキスト形式に変換
+        // 7) 構造化データ（hourNames）を構築
+        const hourNamesResult: { [hour: number]: string[] } = {};
         const textParts: string[] = [];
         for (let hour = 11; hour <= 25; hour++) {
           const names = Array.from(hourSlots[hour]);
+          hourNamesResult[hour] = names;
           if (names.length > 0) {
             textParts.push(`【${hour}:00】`);
             textParts.push(names.join(' '));
@@ -299,6 +302,7 @@ export async function parseXlsxToText(file: File): Promise<ParsedScheduleText> {
           dateObj: shiftDate,
           text,
           hourSlots: hourSlotsCount,
+          hourNames: hourNamesResult,
         });
       } catch (error) {
         logger.error('[XLSX] パースエラー:', error);

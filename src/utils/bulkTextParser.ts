@@ -95,3 +95,55 @@ export function parseBulkTextToSlots(
 
   return { slots: newSlots, unknownNames, invalidTimes, updatedSlots };
 }
+
+/**
+ * 構造化データ（時間→名前配列）から直接タイムスロットを構築する。
+ * XLSXパーサーから行単位で取得した名前をそのまま使うため、
+ * スペースを含む名前（例: "白由黄 フィア"）も正確に処理できる。
+ */
+export function buildSlotsFromHourNames(
+  hourNames: { [hour: number]: string[] },
+  castMasters: CastMaster[],
+  rankLists: RankLists,
+): ParseBulkTextResult {
+  const newSlots = createDefaultSlots();
+  const timeIndexByLabel = new Map(newSlots.map((slot, index) => [slot.time, index]));
+  const unknownNames = new Set<string>();
+  let updatedSlots = 0;
+
+  for (const [hourStr, names] of Object.entries(hourNames)) {
+    const hour = parseInt(hourStr, 10);
+    const hourLabel = `${hour}:00`;
+    const slotIndex = timeIndexByLabel.get(hourLabel);
+    if (slotIndex === undefined || names.length === 0) continue;
+
+    const casts: Cast[] = names.map((name) => {
+      const normalizedName = normalizeCastName(name);
+      const masterIndex = normalizedName
+        ? findCastMasterByNormalizedName(castMasters, normalizedName)
+        : -1;
+      const master = masterIndex !== -1 ? castMasters[masterIndex] : null;
+      const rank = getCastRank(normalizedName || name, rankLists);
+      if (!master) {
+        unknownNames.add(name);
+        return {
+          id: `${Date.now()}_${Math.random()}`,
+          name: normalizedName || name,
+          imageUrl: PLACEHOLDER_IMAGE,
+          rank,
+        };
+      }
+      return {
+        id: `${Date.now()}_${Math.random()}`,
+        name: master.name,
+        imageUrl: master.imageUrl?.trim() || PLACEHOLDER_IMAGE,
+        rank,
+      };
+    });
+
+    newSlots[slotIndex] = { ...newSlots[slotIndex], casts };
+    updatedSlots += 1;
+  }
+
+  return { slots: newSlots, unknownNames, invalidTimes: new Set(), updatedSlots };
+}
