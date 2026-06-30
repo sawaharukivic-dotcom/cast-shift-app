@@ -16,6 +16,7 @@ interface ScheduleEditorProps {
   onSetCasts: (timeIndex: number, casts: Cast[]) => void;
   onRemoveCast: (timeIndex: number, castId: string) => void;
   onXlsxImport: (files: FileList | null, fileInputRef?: React.RefObject<HTMLInputElement>) => void;
+  onShiftManagerImport: (files: FileList | null, fileInputRef?: React.RefObject<HTMLInputElement>) => void;
 }
 
 export function ScheduleEditor({
@@ -27,9 +28,11 @@ export function ScheduleEditor({
   onSetCasts,
   onRemoveCast,
   onXlsxImport,
+  onShiftManagerImport,
 }: ScheduleEditorProps) {
   const [expandedSlot, setExpandedSlot] = useState<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const shiftMgrInputRef = useRef<HTMLInputElement>(null);
 
   const getDateInputValue = () => {
     const dateObj = parseDateString(date);
@@ -107,6 +110,31 @@ export function ScheduleEditor({
         </Button>
         <p className="text-xs text-gray-500 mt-2">
           7日分まとめて選択できます
+        </p>
+      </div>
+
+      {/* shift-manager データ読込（構造化JSON。新仕様：申請ウィンドウ全体・夜順） */}
+      <div>
+        <h3 className="font-bold mb-2">shift-manager データ読込</h3>
+        <input
+          ref={shiftMgrInputRef}
+          type="file"
+          accept=".json,application/json"
+          onChange={(e) => onShiftManagerImport(e.target.files, shiftMgrInputRef)}
+          className="hidden"
+          id="shift-manager-input"
+        />
+        <Button
+          onClick={() => shiftMgrInputRef.current?.click()}
+          size="sm"
+          variant="outline"
+          className="w-full gap-2"
+        >
+          <Upload className="size-4" />
+          shift-manager データ読込
+        </Button>
+        <p className="text-xs text-gray-500 mt-2">
+          shift-manager の「画像用データ出力」で書き出した JSON（1週間分）を読み込みます
         </p>
       </div>
 

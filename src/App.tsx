@@ -25,6 +25,7 @@ import { useCastMasterState } from "./hooks/useCastMasterState";
 import { useScheduleState } from "./hooks/useScheduleState";
 import { useLogoState } from "./hooks/useLogoState";
 import { useXlsxImport } from "./hooks/useXlsxImport";
+import { useShiftManagerImport } from "./hooks/useShiftManagerImport";
 import { useImagePreloader } from "./hooks/useImagePreloader";
 import { LoadingScreen } from "./components/LoadingScreen";
 
@@ -40,6 +41,7 @@ export default function App() {
   const schedule = useScheduleState(castMasters, rankLists, safeSetItem);
   const {
     weekDateKeys,
+    setWeekDateKeys,
     selectedDateKey,
     setSelectedDateKey,
     displayDate,
@@ -57,6 +59,15 @@ export default function App() {
 
   const { handleXlsxImport } = useXlsxImport({
     setSelectedDateKey,
+    castMasters,
+    setCastMasters,
+    rankLists,
+    updateSchedule,
+  });
+
+  const { handleShiftManagerImport } = useShiftManagerImport({
+    setSelectedDateKey,
+    setWeekDateKeys,
     castMasters,
     setCastMasters,
     rankLists,
@@ -153,6 +164,7 @@ export default function App() {
                     onSetCasts={handleSetCasts}
                     onRemoveCast={handleRemoveCast}
                     onXlsxImport={handleXlsxImport}
+                    onShiftManagerImport={handleShiftManagerImport}
                   />
                   <div className="mt-6 border-t pt-4">
                     <label className="text-sm font-semibold">ロゴ画像</label>
