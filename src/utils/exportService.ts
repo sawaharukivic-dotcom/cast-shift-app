@@ -11,7 +11,6 @@ import { buildScheduleRenderInput } from "./scheduleAdapter";
 import { formatDateForDisplay } from "./dateFormatter";
 import { createDefaultSlots } from "./scheduleDefaults";
 import { canvasToBlob, downloadBlob, triggerDownload } from "./downloadHelper";
-import { loadCanvasImages } from "./canvasImageLoader";
 import { uploadToDrive } from "./driveUploader";
 import { fetchImagesViaGas } from "./gasFetchImages";
 import { logger } from "./logger";
@@ -261,6 +260,46 @@ async function _buildSafeBlob(ctx: ExportContext): Promise<Blob | null> {
   return canvasToBlob(safeCanvas);
 }
 
+/**
+ * RenderTimeSlot[] から GAS Base64 画像で CORS-クリーンな imageMap を構築する。
+ * crossOrigin フォールバックで canvas が汚染され toBlob が null になる問題を回避する
+ * （単一書き出しの _buildSafeBlob と同じ方式。base64Cache によりセッション内は再利用）。
+ */
+async function buildImageMapViaGas(
+  timeSlots: import("../types/renderTypes").ScheduleRenderInput["timeSlots"],
+): Promise<Map<string, HTMLImageElement>> {
+  const imageUrls: string[] = [];
+  timeSlots.forEach((slot) => {
+    slot.casts.forEach((cast) => {
+      if (
+        cast.imageUrl?.trim() &&
+        cast.imageUrl !== PLACEHOLDER_IMAGE &&
+        !imageUrls.includes(cast.imageUrl)
+      ) {
+        imageUrls.push(cast.imageUrl);
+      }
+    });
+  });
+
+  const dataUrlMap = await fetchImagesViaGas(imageUrls);
+  const imageMap = new Map<string, HTMLImageElement>();
+  await Promise.all(
+    imageUrls.map(async (originalUrl) => {
+      const dataUrl = dataUrlMap.get(originalUrl);
+      if (!dataUrl) return;
+      try {
+        const img = new Image();
+        img.src = dataUrl;
+        await img.decode();
+        imageMap.set(originalUrl, img);
+      } catch {
+        // skip
+      }
+    }),
+  );
+  return imageMap;
+}
+
 interface WeekBatchExportContext {
   weekDateKeys: string[];
   scheduleByDate: { [dateKey: string]: TimeSlot[] };
@@ -301,17 +340,10 @@ export async function handleWeekBatchExport(ctx: WeekBatchExportContext) {
         ctx.logoImgRef.current
       );
 
-      // adapter 出力から画像 URL を収集（キー不一致を防ぐ）
-      const castUrlMap = new Map<string, string>();
-      weekInput.timeSlots.forEach((slot) => {
-        slot.casts.forEach((cast) => {
-          if (cast.imageUrl?.trim() && cast.imageUrl !== PLACEHOLDER_IMAGE) {
-            castUrlMap.set(cast.imageUrl, cast.name);
-          }
-        });
-      });
-
-      const { imageMap } = await loadCanvasImages(castUrlMap.keys(), castUrlMap);
+      // CORS安全な Base64 画像で imageMap を構築する。
+      // 従来は loadCanvasImages の非CORSフォールバックで canvas が汚染され、
+      // toBlob が null → ZIP が空になっていた（特にキャスト多数の週）。
+      const imageMap = await buildImageMapViaGas(weekInput.timeSlots);
 
       for (const ar of aspectRatios) {
         await new Promise((resolve) => requestAnimationFrame(resolve));
