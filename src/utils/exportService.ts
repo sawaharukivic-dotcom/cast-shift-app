@@ -306,6 +306,9 @@ interface WeekBatchExportContext {
   rankLists: RankLists;
   castMasters: CastMaster[];
   logoImgRef: React.RefObject<HTMLImageElement | null>;
+  // 単一書き出しと同様、画面で選択中のモード・アスペクト比のみ出力する
+  previewMode: "timeline" | "sheet";
+  aspectRatio: AspectRatio;
 }
 
 /**
@@ -318,7 +321,6 @@ export async function handleWeekBatchExport(ctx: WeekBatchExportContext) {
   }
 
   const zip = new JSZip();
-  const aspectRatios: AspectRatio[] = ["16:9", "1:1"];
   const errors: string[] = [];
   let completed = 0;
 
@@ -345,20 +347,17 @@ export async function handleWeekBatchExport(ctx: WeekBatchExportContext) {
       // toBlob が null → ZIP が空になっていた（特にキャスト多数の週）。
       const imageMap = await buildImageMapViaGas(weekInput.timeSlots);
 
-      for (const ar of aspectRatios) {
-        await new Promise((resolve) => requestAnimationFrame(resolve));
-        const canvas = document.createElement("canvas");
-        canvas.width = getCanvasWidth(ar);
-        canvas.height = calculateCanvasHeight(weekInput.timeSlots, ar);
-        const canvasCtx = canvas.getContext("2d");
-        if (!canvasCtx) continue;
-
-        renderSchedule(canvasCtx, weekInput, imageMap, ar);
-
+      // 単一書き出しと同じく、選択中のモード・アスペクト比のみ1枚出力する
+      await new Promise((resolve) => requestAnimationFrame(resolve));
+      const canvas = renderToOffscreenCanvas(
+        weekInput,
+        ctx.previewMode,
+        ctx.aspectRatio,
+        imageMap
+      );
+      if (canvas) {
         const blob = await canvasToBlob(canvas);
-        if (blob) {
-          zip.file(`${dateKey}_${ar.replace(":", "-")}.png`, blob);
-        }
+        if (blob) zip.file(`${dateKey}.png`, blob);
       }
 
       completed++;
@@ -373,7 +372,10 @@ export async function handleWeekBatchExport(ctx: WeekBatchExportContext) {
   }
 
   const zipBlob = await zip.generateAsync({ type: "blob" });
-  downloadBlob(zipBlob, `schedules_${ctx.weekDateKeys.length}days.zip`);
+  // ZIP名に週の範囲（開始日_終了日）を入れる。weekDateKeys は昇順
+  const weekStart = ctx.weekDateKeys[0];
+  const weekEnd = ctx.weekDateKeys[ctx.weekDateKeys.length - 1];
+  downloadBlob(zipBlob, `schedules_${weekStart}_${weekEnd}.zip`);
 
   toast.success(`${completed}日分のPNGをZIPで書き出しました`);
 }

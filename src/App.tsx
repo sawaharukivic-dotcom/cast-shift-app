@@ -113,6 +113,8 @@ export default function App() {
       rankLists,
       castMasters,
       logoImgRef,
+      previewMode,
+      aspectRatio,
     });
 
   if (!masterFetchDone || !imagesReady) {
