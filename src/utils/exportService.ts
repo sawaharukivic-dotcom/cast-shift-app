@@ -322,7 +322,10 @@ export async function handleWeekBatchExport(ctx: WeekBatchExportContext) {
 
   const zip = new JSZip();
   const errors: string[] = [];
+  const driveErrors: string[] = [];
   let completed = 0;
+  let uploaded = 0;
+  const total = ctx.weekDateKeys.length;
 
   for (const dateKey of ctx.weekDateKeys) {
     try {
@@ -357,7 +360,26 @@ export async function handleWeekBatchExport(ctx: WeekBatchExportContext) {
       );
       if (canvas) {
         const blob = await canvasToBlob(canvas);
-        if (blob) zip.file(`${dateKey}.png`, blob);
+        if (blob) {
+          zip.file(`${dateKey}.png`, blob);
+          // Google Drive にもアップロード（単一書き出しと同じ命名規則）
+          toast.info(`${completed + 1}/${total} Driveへアップロード中...`);
+          try {
+            const r = await uploadToDrive(
+              blob,
+              `${dateKey.replace(/-/g, "")}_ScheduleImage.png`
+            );
+            if (r.success) {
+              uploaded++;
+            } else {
+              driveErrors.push(dateKey);
+              logger.error(`[weekBatch] Drive upload failed ${dateKey}:`, r.error);
+            }
+          } catch (e) {
+            driveErrors.push(dateKey);
+            logger.error(`[weekBatch] Drive upload error ${dateKey}:`, e);
+          }
+        }
       }
 
       completed++;
@@ -368,7 +390,7 @@ export async function handleWeekBatchExport(ctx: WeekBatchExportContext) {
   }
 
   if (errors.length > 0) {
-    toast.error(`失敗: ${errors.join(", ")}`);
+    toast.error(`生成失敗: ${errors.join(", ")}`);
   }
 
   const zipBlob = await zip.generateAsync({ type: "blob" });
@@ -377,5 +399,8 @@ export async function handleWeekBatchExport(ctx: WeekBatchExportContext) {
   const weekEnd = ctx.weekDateKeys[ctx.weekDateKeys.length - 1];
   downloadBlob(zipBlob, `schedules_${weekStart}_${weekEnd}.zip`);
 
-  toast.success(`${completed}日分のPNGをZIPで書き出しました`);
+  if (driveErrors.length > 0) {
+    toast.error(`Driveアップロード失敗: ${driveErrors.join(", ")}（ZIPはローカルに保存済み）`);
+  }
+  toast.success(`${completed}日分をZIP保存＋Driveへ${uploaded}件アップロードしました`);
 }
