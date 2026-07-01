@@ -5,3 +5,6 @@ dist
 *.local
 .env
 .env.*
+
+# QA成果物（ローカル作業領域・コミットしない）
+staging/qa/

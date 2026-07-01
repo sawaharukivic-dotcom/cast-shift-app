@@ -11,7 +11,6 @@ import { buildScheduleRenderInput } from "./scheduleAdapter";
 import { formatDateForDisplay } from "./dateFormatter";
 import { createDefaultSlots } from "./scheduleDefaults";
 import { canvasToBlob, downloadBlob, triggerDownload } from "./downloadHelper";
-import { loadCanvasImages } from "./canvasImageLoader";
 import { uploadToDrive } from "./driveUploader";
 import { fetchImagesViaGas } from "./gasFetchImages";
 import { logger } from "./logger";
@@ -261,12 +260,55 @@ async function _buildSafeBlob(ctx: ExportContext): Promise<Blob | null> {
   return canvasToBlob(safeCanvas);
 }
 
+/**
+ * RenderTimeSlot[] から GAS Base64 画像で CORS-クリーンな imageMap を構築する。
+ * crossOrigin フォールバックで canvas が汚染され toBlob が null になる問題を回避する
+ * （単一書き出しの _buildSafeBlob と同じ方式。base64Cache によりセッション内は再利用）。
+ */
+async function buildImageMapViaGas(
+  timeSlots: import("../types/renderTypes").ScheduleRenderInput["timeSlots"],
+): Promise<Map<string, HTMLImageElement>> {
+  const imageUrls: string[] = [];
+  timeSlots.forEach((slot) => {
+    slot.casts.forEach((cast) => {
+      if (
+        cast.imageUrl?.trim() &&
+        cast.imageUrl !== PLACEHOLDER_IMAGE &&
+        !imageUrls.includes(cast.imageUrl)
+      ) {
+        imageUrls.push(cast.imageUrl);
+      }
+    });
+  });
+
+  const dataUrlMap = await fetchImagesViaGas(imageUrls);
+  const imageMap = new Map<string, HTMLImageElement>();
+  await Promise.all(
+    imageUrls.map(async (originalUrl) => {
+      const dataUrl = dataUrlMap.get(originalUrl);
+      if (!dataUrl) return;
+      try {
+        const img = new Image();
+        img.src = dataUrl;
+        await img.decode();
+        imageMap.set(originalUrl, img);
+      } catch {
+        // skip
+      }
+    }),
+  );
+  return imageMap;
+}
+
 interface WeekBatchExportContext {
   weekDateKeys: string[];
   scheduleByDate: { [dateKey: string]: TimeSlot[] };
   rankLists: RankLists;
   castMasters: CastMaster[];
   logoImgRef: React.RefObject<HTMLImageElement | null>;
+  // 単一書き出しと同様、画面で選択中のモード・アスペクト比のみ出力する
+  previewMode: "timeline" | "sheet";
+  aspectRatio: AspectRatio;
 }
 
 /**
@@ -279,9 +321,11 @@ export async function handleWeekBatchExport(ctx: WeekBatchExportContext) {
   }
 
   const zip = new JSZip();
-  const aspectRatios: AspectRatio[] = ["16:9", "1:1"];
   const errors: string[] = [];
+  const driveErrors: string[] = [];
   let completed = 0;
+  let uploaded = 0;
+  const total = ctx.weekDateKeys.length;
 
   for (const dateKey of ctx.weekDateKeys) {
     try {
@@ -301,31 +345,40 @@ export async function handleWeekBatchExport(ctx: WeekBatchExportContext) {
         ctx.logoImgRef.current
       );
 
-      // adapter 出力から画像 URL を収集（キー不一致を防ぐ）
-      const castUrlMap = new Map<string, string>();
-      weekInput.timeSlots.forEach((slot) => {
-        slot.casts.forEach((cast) => {
-          if (cast.imageUrl?.trim() && cast.imageUrl !== PLACEHOLDER_IMAGE) {
-            castUrlMap.set(cast.imageUrl, cast.name);
-          }
-        });
-      });
+      // CORS安全な Base64 画像で imageMap を構築する。
+      // 従来は loadCanvasImages の非CORSフォールバックで canvas が汚染され、
+      // toBlob が null → ZIP が空になっていた（特にキャスト多数の週）。
+      const imageMap = await buildImageMapViaGas(weekInput.timeSlots);
 
-      const { imageMap } = await loadCanvasImages(castUrlMap.keys(), castUrlMap);
-
-      for (const ar of aspectRatios) {
-        await new Promise((resolve) => requestAnimationFrame(resolve));
-        const canvas = document.createElement("canvas");
-        canvas.width = getCanvasWidth(ar);
-        canvas.height = calculateCanvasHeight(weekInput.timeSlots, ar);
-        const canvasCtx = canvas.getContext("2d");
-        if (!canvasCtx) continue;
-
-        renderSchedule(canvasCtx, weekInput, imageMap, ar);
-
+      // 単一書き出しと同じく、選択中のモード・アスペクト比のみ1枚出力する
+      await new Promise((resolve) => requestAnimationFrame(resolve));
+      const canvas = renderToOffscreenCanvas(
+        weekInput,
+        ctx.previewMode,
+        ctx.aspectRatio,
+        imageMap
+      );
+      if (canvas) {
         const blob = await canvasToBlob(canvas);
         if (blob) {
-          zip.file(`${dateKey}_${ar.replace(":", "-")}.png`, blob);
+          zip.file(`${dateKey}.png`, blob);
+          // Google Drive にもアップロード（単一書き出しと同じ命名規則）
+          toast.info(`${completed + 1}/${total} Driveへアップロード中...`);
+          try {
+            const r = await uploadToDrive(
+              blob,
+              `${dateKey.replace(/-/g, "")}_ScheduleImage.png`
+            );
+            if (r.success) {
+              uploaded++;
+            } else {
+              driveErrors.push(dateKey);
+              logger.error(`[weekBatch] Drive upload failed ${dateKey}:`, r.error);
+            }
+          } catch (e) {
+            driveErrors.push(dateKey);
+            logger.error(`[weekBatch] Drive upload error ${dateKey}:`, e);
+          }
         }
       }
 
@@ -337,11 +390,17 @@ export async function handleWeekBatchExport(ctx: WeekBatchExportContext) {
   }
 
   if (errors.length > 0) {
-    toast.error(`失敗: ${errors.join(", ")}`);
+    toast.error(`生成失敗: ${errors.join(", ")}`);
   }
 
   const zipBlob = await zip.generateAsync({ type: "blob" });
-  downloadBlob(zipBlob, `schedules_${ctx.weekDateKeys.length}days.zip`);
+  // ZIP名に週の範囲（開始日_終了日）を入れる。weekDateKeys は昇順
+  const weekStart = ctx.weekDateKeys[0];
+  const weekEnd = ctx.weekDateKeys[ctx.weekDateKeys.length - 1];
+  downloadBlob(zipBlob, `schedules_${weekStart}_${weekEnd}.zip`);
 
-  toast.success(`${completed}日分のPNGをZIPで書き出しました`);
+  if (driveErrors.length > 0) {
+    toast.error(`Driveアップロード失敗: ${driveErrors.join(", ")}（ZIPはローカルに保存済み）`);
+  }
+  toast.success(`${completed}日分をZIP保存＋Driveへ${uploaded}件アップロードしました`);
 }
