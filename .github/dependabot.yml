@@ -1,0 +1,12 @@
+# GitHub Actions の部品（checkout・setup-node など）の新しい版を、月1回まとめて PR で知らせる。
+version: 2
+updates:
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "monthly"
+    commit-message:
+      prefix: "chore(ci)"
+    groups:
+      github-actions:
+        patterns: ["*"]
